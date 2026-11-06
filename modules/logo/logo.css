@@ -7,6 +7,6 @@ body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC"
 #logo-image{width:clamp(25px,4.7vh,34px);height:clamp(25px,4.7vh,34px);object-fit:contain;display:block;filter:drop-shadow(0 0 6px rgba(160,220,255,.28))}
 #logo-image[hidden]{display:none}
 #logo-symbol{white-space:nowrap}
-#logo-countdown{display:block;min-height:14px;padding-right:1px;color:rgba(210,230,245,.82);font:600 11px/1.2 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:.09em;font-variant-numeric:tabular-nums;white-space:nowrap}
+#logo-countdown{display:block;min-height:14px;padding-right:1px;color:rgba(169,234,255,.72);font:600 10px/1.2 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:.04em;font-variant-numeric:tabular-nums;white-space:nowrap}
 @media(max-width:700px){#logo-line{gap:5px;font-size:clamp(12px,1.9vh,13px)}#logo-image{width:clamp(25px,4.7vh,31px);height:clamp(25px,4.7vh,31px)}#logo-countdown{font-size:10px}}
 @media(prefers-reduced-motion:reduce){#logo-line{transition-duration:.01ms}}
