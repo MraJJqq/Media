@@ -15,6 +15,7 @@ function apply(symbol){
 }
 function setSymbol(symbol){
  if(typeof symbol!=="string"||!symbol||symbol===current||transitioning)return;
+ if(!current){apply(symbol);brand.style.opacity="1";return;}
  pending=symbol;transitioning=true;
  brand.style.opacity="0";
  window.setTimeout(()=>{
@@ -28,4 +29,4 @@ window.addEventListener("message",event=>{
  if(event.origin!=="https://mrajjqq.github.io")return;
  if(event.data?.type==="VEGAS_LOGO_SET_SYMBOL")setSymbol(event.data.symbol);
 });
-apply("AAPL");
+brand.style.opacity="0";
