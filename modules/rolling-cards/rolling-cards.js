@@ -136,7 +136,7 @@ ring.addEventListener("pointermove",function(e){
   if(e.pointerId!==pid)return;
   if(!drag){
     if(Math.abs(e.clientX-sx)<SLOP)return;                 // 轻点不打断运动
-    drag=true;tapSymbol=null;vel=0;sn=0;lx=cx=e.clientX;wake();return;
+    drag=true;window.parent.postMessage({type:"VEGAS_CARD_INTERACTION",active:true},"https://mrajjqq.github.io");tapSymbol=null;vel=0;sn=0;lx=cx=e.clientX;wake();return;
   }
   cx=e.clientX;
 });
@@ -144,7 +144,7 @@ function end(e){
   if(e.pointerId!==pid)return;
   pid=-1;
   if(drag){
-    drag=false;pos+=(cx-lx)/Rx;
+    drag=false;window.parent.postMessage({type:"VEGAS_CARD_INTERACTION",active:false},"https://mrajjqq.github.io");pos+=(cx-lx)/Rx;
     var v=fling(performance.now());vel=v>FLING_MAX?FLING_MAX:v<-FLING_MAX?-FLING_MAX:v;
     setDir();if(paused&&(vel>.3||vel<-.3))paused=false;
   }else if(e.type==="pointerup"){                          // 卡片点按选择；双击仍暂停 / 继续
