@@ -4,7 +4,7 @@ const LOGOS=Object.freeze({
 const ROOT="https://mrajjqq.github.io/Media/Logos/";
 const SERVER_TIME_URL="https://api.bitget.com/api/v2/public/time";
 const FOUR_HOURS_MS=14400000;
-const brand=document.getElementById("logo-brand"),line=document.getElementById("logo-line"),image=document.getElementById("logo-image"),label=document.getElementById("logo-symbol"),countdown=document.getElementById("logo-countdown");
+const brand=document.getElementById("logo-brand"),image=document.getElementById("logo-image"),label=document.getElementById("logo-symbol"),countdown=document.getElementById("logo-countdown");
 let current="",pending=null,transitioning=false,serverTimeAtSync=null,performanceAtSync=null,syncBusy=false,clockTimer=null,syncTimer=null;
 function apply(symbol){
  const entry=LOGOS[symbol];
@@ -14,11 +14,11 @@ function apply(symbol){
 }
 function setSymbol(symbol){
  if(typeof symbol!=="string"||!symbol||symbol===current||transitioning)return;
- if(!current){apply(symbol);line.style.opacity="1";return;}
- pending=symbol;transitioning=true;line.style.opacity="0";
+ if(!current){apply(symbol);brand.style.opacity="1";return;}
+ pending=symbol;transitioning=true;brand.style.opacity="0";
  window.setTimeout(()=>{
   if(pending)apply(pending);
-  pending=null;line.style.opacity="1";
+  pending=null;brand.style.opacity="1";
   window.setTimeout(()=>{transitioning=false;},1500);
  },1500);
 }
@@ -66,5 +66,5 @@ document.addEventListener("visibilitychange",()=>{
  if(document.visibilityState==="hidden")stopClock();
  else{startClock();renderCountdown();}
 });
-line.style.opacity="0";
+brand.style.opacity="0";
 startClock();
