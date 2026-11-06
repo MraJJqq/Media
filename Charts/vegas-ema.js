@@ -85,11 +85,12 @@ export function createVegasEmaOverlay({ canvas, view = null } = {}) {
         !(v.barW > 0) || !(v.hi > v.lo) || v.lo <= 0) return;
 
     const { barW, right, lo, hi } = v;
-    const xOf = i => v.W - (right - i + 0.5) * barW;
+    const rightGap = Number.isFinite(v.rightGap) ? v.rightGap : 0;
+    const xOf = i => v.W - rightGap - (right - i + 0.5) * barW;
     const yOf = p => v.T0 +
       (Math.log(hi) - Math.log(p)) /
       (Math.log(hi) - Math.log(lo)) * (v.H - v.T0 - v.B);
-    const iAt = x => right + 0.5 - (v.W - x) / barW;
+    const iAt = x => right + 0.5 - (v.W - rightGap - x) / barW;
     const i0 = Math.max(0, Math.floor(iAt(0)));
     const i1 = Math.min(candles.length - 1, Math.ceil(iAt(v.W)));
 
