@@ -18,7 +18,7 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:
 (()=>{
 const cv=document.getElementById('c'),ctx=cv.getContext('2d'),emaCanvas=document.getElementById('vegas-ema');
 let vegasOverlay=null;
-const T0=10,B=10,MINW=2,MAXW=40,RIGHT_GAP_RATIO=.10,LEFT_LIMIT=10;
+const T0=10,B=10,MINW=2,MAXW=40,RIGHT_GAP_RATIO=.10,LEFT_LIMIT=MAXW*.5+10;
 let C=[],W=0,H=0,dpr=1,col={},barW=9,right=0,lo=0,hi=1,inited=false,vel=0,lastT=0,raf=0;
 const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
 
