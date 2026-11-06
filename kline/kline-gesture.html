@@ -8,14 +8,16 @@
 :root{--up:#12a06b;--dn:#d93a3f}
 @media (prefers-color-scheme:dark){:root{--up:#22b07d;--dn:#e5484d}}
 html,body{height:100%;margin:0;background:transparent;overscroll-behavior:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
-canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;background:transparent}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;background:transparent}#vegas-ema{z-index:2;pointer-events:none;touch-action:none}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
+<canvas id="vegas-ema" aria-hidden="true"></canvas>
 <script>
 (()=>{
-const cv=document.getElementById('c'),ctx=cv.getContext('2d');
+const cv=document.getElementById('c'),ctx=cv.getContext('2d'),emaCanvas=document.getElementById('vegas-ema');
+let vegasOverlay=null;
 const T0=10,B=10,MINW=2,MAXW=40,PAD=5;
 let C=[],W=0,H=0,dpr=1,col={},barW=9,right=0,lo=0,hi=1,inited=false,vel=0,lastT=0,raf=0;
 const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
@@ -39,6 +41,7 @@ function gen(n){
 const xOf=i=>W-(right-i+.5)*barW;
 const iAt=x=>right+.5-(W-x)/barW;
 const yOf=p=>T0+(Math.log(hi)-Math.log(p))/(Math.log(hi)-Math.log(lo))*(H-T0-B);
+function syncVegasEma(){if(vegasOverlay)vegasOverlay.setView({barW,right,lo,hi,W,H,T0,B})}
 function setRight(v){const n=C.length;right=clamp(v,Math.min(4,n-1),n-1+PAD)}
 
 /* 渲染：仅在需要时绘制 */
@@ -65,6 +68,7 @@ function frame(){
   if(!inited){lo=mn;hi=mx;inited=true}
   else{lo+=(mn-lo)*.3;hi+=(mx-hi)*.3;if(Math.abs(mn-lo)+Math.abs(mx-hi)>(mx-mn)*.002)ask();else{lo=mn;hi=mx}}
   draw(i0,i1);
+  syncVegasEma();
 }
 /* K线：空心（涨空心、跌实心，颜色按前一根收盘价）；合并为4条路径一次绘制 */
 function draw(i0,i1){
@@ -142,8 +146,10 @@ cv.addEventListener('contextmenu',e=>e.preventDefault());
 document.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
 
 /* 启动 */
-window.setCandles=a=>{C=a;inited=false;vel=0;setRight(C.length-1+PAD);ask()};
+window.setCandles=a=>{C=Array.isArray(a)?a:[];inited=false;vel=0;setRight(C.length-1+PAD);vegasOverlay?.setCandles(C);ask()};
 C=gen(2000);setRight(C.length-1+PAD);
+import("https://mrajjqq.github.io/Media/Charts/vegas-ema.js").then(({createVegasEmaOverlay})=>{vegasOverlay=createVegasEmaOverlay({canvas:emaCanvas});vegasOverlay.setCandles(C);syncVegasEma()}).catch(error=>console.error("[VEGAS EMA] module load failed",error));
+window.addEventListener("pagehide",()=>vegasOverlay?.destroy(),{once:true});
 new ResizeObserver(resize).observe(cv);
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{readColors();ask()});
 resize();
