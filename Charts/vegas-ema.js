@@ -130,6 +130,8 @@ export function createVegasEmaOverlay({ canvas, view = null } = {}) {
     ask();
   }
 
+  function renderNow() { if (destroyed) return; if (raf) { cancelAnimationFrame(raf); raf = 0; } draw(); }
+
   function setView(next) {
     if (!next || ![
       next.barW, next.right, next.lo, next.hi,
@@ -154,5 +156,5 @@ export function createVegasEmaOverlay({ canvas, view = null } = {}) {
     currentView = null;
   }
 
-  return Object.freeze({ setCandles, setView, destroy });
+  return Object.freeze({ setCandles, setView, renderNow, destroy });
 }
