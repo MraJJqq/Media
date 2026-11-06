@@ -1,0 +1,2 @@
+/** V4 shared configuration; candle compatibility settings are dormant without the chart module. */
+export const V4_CONFIG=Object.freeze({app:Object.freeze({name:"VEGAS V4",instrumentCount:27,timeframe:"4H",timeframeSeconds:14_400,historyTargetDays:365,marketDataSource:"Bitget"}),visual:Object.freeze({accidentalTextSelection:false})});
