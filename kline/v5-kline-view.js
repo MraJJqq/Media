@@ -9,9 +9,8 @@ const ctx=canvas.getContext("2d"),overlayCanvas=document.createElement("canvas")
 const overlay=createVegasEmaOverlay({canvas:overlayCanvas}),T0=10,B=10,MINW=2,MAXW=40,RIGHT_GAP_BARS=.5;
 let C=[],W=0,H=0,dpr=1,barW=viewportState?.barW??9,right=0,lo=0,hi=1,inited=false,vel=0,lastT=0,raf=0,destroyed=false;
 const P=new Map();let pinch=null,hist=[];const clamp=(v,a,b)=>Math.min(b,Math.max(a,v)),xOf=i=>W-(right-i+.5)*barW,iAt=x=>right+.5-(W-x)/barW;
-const MIN_LEFT_VISIBLE_BARS=5;
 function setRight(v){
- const maxRight=Math.max(0,C.length-MIN_LEFT_VISIBLE_BARS-.5+W/barW);
+ const maxRight=Math.max(0,C.length-1+W/barW-.5);
  right=clamp(v,0,maxRight);
 }
 function saveViewport(){const next=captureViewportState(C,right,barW);if(!next)return;viewportState=next;try{localStorage.setItem(VIEWPORT_STORAGE_KEY,JSON.stringify(next))}catch(_){}}
