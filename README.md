@@ -12,7 +12,7 @@ VEGAS 的共享素材与运行时模块唯一来源。
 - `modules/rolling-cards/`：滚动卡片模块。
 - `modules/shared/`：Bitget 客户端、生命周期、品种池与行情缓存基础模块。
 - `modules/signal-ticker/`：V12 信号读取与底部滚动展示模块。
-- `kline/`：独立K线手势参考实现。
+- `kline/`：V5当前K线视图/手势、固定视窗状态与配套EMA模块。
 - `References/`、`Templates/`、`UI/`：技术规范与展示参考。
 
 ## 使用边界
