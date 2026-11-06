@@ -91,7 +91,7 @@ function render(calm){
 /* ---- 主循环：有事才跑，最高 60fps，静止时完全停止 ---- */
 var vel=0,dir=1,vis=true,raf=0,last=0,drag=false;
 var paused=SPEED===0||matchMedia("(prefers-reduced-motion: reduce)").matches;
-var pid=-1,lx=0,cx=0,sx=0,lastTap=0;
+var pid=-1,lx=0,cx=0,sx=0,lastTap=0,tapSymbol=null;
 var st=new Float64Array(8),sp=new Float64Array(8),sn=0;   // 拖动采样环形缓冲（松手惯性用）
 
 function wake(){if(!raf&&vis&&!document.hidden){last=performance.now();raf=requestAnimationFrame(tick)}}
@@ -128,13 +128,15 @@ ring.addEventListener("pointerdown",function(e){
   if(pid!==-1)return;                                      // 只跟踪第一根手指
   if(e.pointerType==="mouse"&&e.button!==0)return;         // 鼠标只响应左键
   pid=e.pointerId;drag=false;sx=lx=cx=e.clientX;
+  var hit=document.elementFromPoint(e.clientX,e.clientY),card=hit&&hit.closest?hit.closest(".c"):null;
+  tapSymbol=card?card.dataset.symbol:null;
   ring.setPointerCapture(pid);
 });
 ring.addEventListener("pointermove",function(e){
   if(e.pointerId!==pid)return;
   if(!drag){
     if(Math.abs(e.clientX-sx)<SLOP)return;                 // 轻点不打断运动
-    drag=true;vel=0;sn=0;lx=cx=e.clientX;wake();return;
+    drag=true;tapSymbol=null;vel=0;sn=0;lx=cx=e.clientX;wake();return;
   }
   cx=e.clientX;
 });
@@ -145,10 +147,12 @@ function end(e){
     drag=false;pos+=(cx-lx)/Rx;
     var v=fling(performance.now());vel=v>FLING_MAX?FLING_MAX:v<-FLING_MAX?-FLING_MAX:v;
     setDir();if(paused&&(vel>.3||vel<-.3))paused=false;
-  }else if(e.type==="pointerup"){                          // 双击暂停 / 继续
+  }else if(e.type==="pointerup"){                          // 卡片点按选择；双击仍暂停 / 继续
+    if(tapSymbol)window.parent.postMessage({type:"VEGAS_CARD_SELECT",symbol:tapSymbol},"https://mrajjqq.github.io");
     var t=performance.now();
     if(t-lastTap<320){paused=!paused;lastTap=0}else lastTap=t;
   }
+  tapSymbol=null;
   wake();
 }
 ring.addEventListener("pointerup",end);
