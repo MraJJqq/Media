@@ -1,0 +1,10 @@
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+html,body{width:100%;height:100%;margin:0;overflow:hidden;background:transparent}
+body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}
+#logo-brand{position:absolute;inset:0;display:flex;align-items:center;justify-content:flex-end;gap:7px;min-height:30px;padding:0 12px 0 0;color:#e8f5ff;font:700 12px/1.1 Inter,-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;text-shadow:0 1px 7px rgba(0,0,0,.8);pointer-events:none;opacity:1;transition:opacity 1.5s ease-in-out}
+#logo-image{width:27px;height:27px;object-fit:contain;display:block;filter:drop-shadow(0 0 5px rgba(160,220,255,.25))}
+#logo-image[hidden]{display:none}
+#logo-symbol{white-space:nowrap}
+@media(max-width:700px){#logo-brand{gap:5px;font-size:11px}#logo-image{width:24px;height:24px}}
+@media(prefers-reduced-motion:reduce){#logo-brand{transition-duration:.01ms}}
