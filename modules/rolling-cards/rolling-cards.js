@@ -91,7 +91,7 @@ function render(calm){
 /* ---- 主循环：有事才跑，最高 60fps，静止时完全停止 ---- */
 var vel=0,dir=1,vis=true,raf=0,last=0,drag=false;
 var paused=SPEED===0||matchMedia("(prefers-reduced-motion: reduce)").matches;
-var pid=-1,lx=0,cx=0,sx=0,lastTap=0,tapSymbol=null;
+var pid=-1,lx=0,cx=0,sx=0,lastTap=0,tapSymbol=null,lastTouchEnd=0;
 var st=new Float64Array(8),sp=new Float64Array(8),sn=0;   // 拖动采样环形缓冲（松手惯性用）
 
 function wake(){if(!raf&&vis&&!document.hidden){last=performance.now();raf=requestAnimationFrame(tick)}}
@@ -124,6 +124,9 @@ function fling(now){                                       // 取最近 100ms �
   return t>16?(sp[nk]-sp[ok])/(t/1000):0;
 }
 function setDir(){if(vel>.05)dir=1;else if(vel<-.05)dir=-1}
+/* Block iOS Safari double-tap page zoom; pointerup keeps the existing card behavior. */
+ring.addEventListener("touchend",function(e){if(e.changedTouches.length!==1||e.touches.length!==0)return;var now=performance.now();if(lastTouchEnd&&now-lastTouchEnd<=320){e.preventDefault();lastTouchEnd=0}else lastTouchEnd=now},{passive:false});
+ring.addEventListener("touchcancel",function(){lastTouchEnd=0},{passive:true});
 ring.addEventListener("pointerdown",function(e){
   if(pid!==-1)return;                                      // 只跟踪第一根手指
   if(e.pointerType==="mouse"&&e.button!==0)return;         // 鼠标只响应左键
