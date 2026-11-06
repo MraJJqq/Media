@@ -27,13 +27,13 @@ function exchangeNow(){
  return serverTimeAtSync+(performance.now()-performanceAtSync);
 }
 function renderCountdown(){
- if(!current){countdown.textContent="--:--:--";return;}
+ if(!current){countdown.textContent="--:--";return;}
  const now=exchangeNow();
  if(now===null){countdown.textContent="--:--:--";return;}
  const nextClose=(Math.floor(now/FOUR_HOURS_MS)+1)*FOUR_HOURS_MS;
- const remaining=Math.max(0,Math.ceil((nextClose-now)/1000));
- const hours=Math.floor(remaining/3600),minutes=Math.floor((remaining%3600)/60),seconds=remaining%60;
- countdown.textContent=[hours,minutes,seconds].map(v=>String(v).padStart(2,"0")).join(":");
+ const remainingMinutes=Math.max(0,Math.ceil((nextClose-now)/60000));
+ const hours=Math.floor(remainingMinutes/60),minutes=remainingMinutes%60;
+ countdown.textContent=[hours,minutes].map(v=>String(v).padStart(2,"0")).join(":");
 }
 async function syncExchangeTime(){
  if(syncBusy||document.visibilityState==="hidden")return;
