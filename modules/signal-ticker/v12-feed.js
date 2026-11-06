@@ -1,5 +1,5 @@
-import { V4_CONFIG } from "../core/config.js?v=v4-foundation-1";
-import { INSTRUMENTS as V4_INSTRUMENTS } from "../core/universe-v4.js?v=v4-foundation-1";
+import { V4_CONFIG } from "../shared/config.js?v=media-foundation-1";
+import { INSTRUMENTS as V4_INSTRUMENTS } from "../shared/universe-v4.js?v=media-foundation-1";
 
 const DEFAULT_URL = "https://raw.githubusercontent.com/MraJJqq/v12/main/v12/public-signals.json";
 const DEFAULT_TIMEOUT_MS = 10_000;

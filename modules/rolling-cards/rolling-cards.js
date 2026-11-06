@@ -31,7 +31,7 @@ for(var i=0;i<N;i++){
   var e=tpl.cloneNode(true),name=SYMS[i][0],ic=e.querySelector(".ico");
   e.dataset.symbol=name;
   var logo=logos[name];
-  if(logo){ic.src="./assets/logos/"+logo+".svg?v=v4-logo-7";ic.alt=name;}
+  if(logo){ic.src=(logo==="bitcoin"||logo==="hyperliquid"||logo==="gold"||logo==="crude-oil"?"https://raw.githubusercontent.com/MraJJqq/Media/main/Logos/Core/":"https://raw.githubusercontent.com/MraJJqq/Media/main/Logos/Stocks/")+logo+".svg";ic.alt=name;}
   else{ic.remove();}
   e.querySelector(".nm").textContent=name+"USDT";
   els.push(e);pe.push(e.querySelector(".price"));ce.push(e.querySelector(".chg"));
@@ -186,7 +186,7 @@ window.setCardOrder=function(symbols){
   return true;
 };
 window.addEventListener("message",function(event){
-  if(event.origin!==location.origin||event.source!==window.parent)return;
+  if(event.origin!=="https://mrajjqq.github.io"||event.source!==window.parent)return;
   if(event.data?.type==="VEGAS_SET_CARD_ORDER")window.setCardOrder(event.data.symbols);
 });
 

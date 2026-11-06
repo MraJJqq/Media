@@ -1,4 +1,4 @@
-import { INSTRUMENTS } from "../core/universe-v4.js?v=v4-foundation-1";
+import { INSTRUMENTS } from "../shared/universe-v4.js?v=media-foundation-1";
 
 export function createSignalTicker({
   container,
