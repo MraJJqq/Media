@@ -146,7 +146,17 @@ cv.addEventListener('contextmenu',e=>e.preventDefault());
 document.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
 
 /* 启动 */
-window.setCandles=a=>{C=Array.isArray(a)?a:[];inited=false;vel=0;setRight(C.length-1+PAD);vegasOverlay?.setCandles(C);ask()};
+window.setCandles=a=>{
+  C=Array.isArray(a)?a.filter(c=>c&&Number.isFinite(Number(c.t))&&Number(c.o)>0&&Number(c.h)>0&&Number(c.l)>0&&Number(c.c)>0).map(c=>({t:Number(c.t),o:Number(c.o),h:Number(c.h),l:Number(c.l),c:Number(c.c)})).sort((x,y)=>x.t-y.t):[];
+  inited=false;vel=0;setRight(C.length-1+PAD);vegasOverlay?.setCandles(C);
+  if(!C.length){ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);const ec=emaCanvas.getContext("2d");ec.setTransform(dpr,0,0,dpr,0,0);ec.clearRect(0,0,W,H);return;}
+  ask();
+};
+window.addEventListener("message",event=>{
+  if(event.origin!=="https://mrajjqq.github.io"||event.source!==window.parent)return;
+  const data=event.data;
+  if(data?.type==="VEGAS_KLINE_SET_CANDLES"&&Array.isArray(data.candles))window.setCandles(data.candles);
+});
 C=gen(2000);setRight(C.length-1+PAD);
 import("https://mrajjqq.github.io/Media/Charts/vegas-ema.js").then(({createVegasEmaOverlay})=>{vegasOverlay=createVegasEmaOverlay({canvas:emaCanvas});vegasOverlay.setCandles(C);syncVegasEma()}).catch(error=>console.error("[VEGAS EMA] module load failed",error));
 window.addEventListener("pagehide",()=>vegasOverlay?.destroy(),{once:true});
