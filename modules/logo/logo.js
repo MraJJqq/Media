@@ -43,18 +43,28 @@ async function syncExchangeTime(){
   if(!response.ok)throw new Error("Bitget server-time HTTP "+response.status);
   const payload=await response.json(),end=performance.now(),serverTime=Number(payload?.data?.serverTime);
   if(payload?.code!=="00000"||!Number.isFinite(serverTime)||serverTime<=0)throw new Error("Invalid Bitget server-time response");
-  serverTimeAtSync=serverTime;performanceAtSync=(start+end)/2;renderCountdown();
+  serverTimeAtSync=serverTime;performanceAtSync=(start+end)/2;renderCountdown();scheduleClock();
  }catch(error){console.warn("[VEGAS Logo 4H countdown] server-time sync failed",error);}
  finally{syncBusy=false;}
 }
+function scheduleClock(){
+ if(clockTimer!==null)window.clearTimeout(clockTimer);
+ const now=exchangeNow();
+ const delay=now===null?1000:Math.max(50,60000-(now%60000)+25);
+ clockTimer=window.setTimeout(()=>{
+  clockTimer=null;
+  renderCountdown();
+  scheduleClock();
+ },delay);
+}
 function startClock(){
- if(clockTimer!==null)return;
+ if(clockTimer!==null||syncTimer!==null)return;
  void syncExchangeTime();
- clockTimer=window.setInterval(renderCountdown,1000);
+ scheduleClock();
  syncTimer=window.setInterval(syncExchangeTime,60000);
 }
 function stopClock(){
- if(clockTimer!==null)window.clearInterval(clockTimer);
+ if(clockTimer!==null)window.clearTimeout(clockTimer);
  if(syncTimer!==null)window.clearInterval(syncTimer);
  clockTimer=syncTimer=null;
 }
