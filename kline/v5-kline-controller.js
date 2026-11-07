@@ -54,6 +54,24 @@ export function createV5KlineController({frame,client,instruments,isHidden=()=>d
   const p="/api/v2/mix/market/history-candles?symbol="+encodeURIComponent(contract)+"&productType=USDT-FUTURES&granularity=4H&limit="+HISTORY_PAGE_SIZE+"&endTime="+Math.max(0,oldest-1);
   return mergeCandles(normalizeRows(await client.request(p)));
  }
+ async function fillRecentGap(contract,rows,fresh,item){
+  if(!rows.length||!fresh.length)return rows;
+  const cachedNewest=rows[rows.length-1].t;
+  if(fresh[0].t<=cachedNewest+FOUR_HOURS_MS)return mergeCandles(rows,fresh);
+  let end=fresh[0].t,merged=mergeCandles(rows,fresh);
+  while(!destroyed&&!isHidden()&&end>cachedNewest+FOUR_HOURS_MS){
+   const page=await historyPage(contract,end);
+   if(!page.length)throw new Error("history-gap-unresolved");
+   merged=mergeCandles(merged,page);
+   await writeCache(contract,merged,false);
+   publishIfSelected(item.symbol,contract,merged,false);
+   const nextEnd=page[0].t;
+   if(nextEnd>=end)throw new Error("history-gap-pagination-stalled");
+   end=nextEnd;
+   if(page.length<HISTORY_PAGE_SIZE&&end>cachedNewest+FOUR_HOURS_MS)throw new Error("history-gap-incomplete");
+  }
+  return merged;
+ }
  function publishIfSelected(symbol,contract,rows,complete){
   if(!selected(symbol,contract))return;
   candles=rows;historyComplete=complete;render();
@@ -62,15 +80,13 @@ export function createV5KlineController({frame,client,instruments,isHidden=()=>d
  async function backfillInstrument(item){
   const contract=item.contract,symbol=item.symbol,cached=await readCache(contract);
   let rows=mergeCandles(cached.candles),complete=cached.historyComplete;
-  if(!rows.length){
-   const fresh=await latest(contract);
-   if(!fresh.length){failed.set(contract,"no-data");return;}
-   rows=mergeCandles(rows,fresh);
-   await writeCache(contract,rows,false);
-   publishIfSelected(symbol,contract,rows,false);
-  }else{
-   const fresh=await latest(contract,rows.length<3?1000:3);
-   if(fresh.length){rows=mergeCandles(rows,fresh);await writeCache(contract,rows,complete);publishIfSelected(symbol,contract,rows,complete);}
+  const fresh=await latest(contract,rows.length<3?1000:3);
+  if(!fresh.length&&!rows.length){failed.set(contract,"no-data");return;}
+  if(fresh.length){
+   if(rows.length){rows=await fillRecentGap(contract,rows,fresh,item);}
+   else rows=mergeCandles(rows,fresh);
+   await writeCache(contract,rows,complete);
+   publishIfSelected(symbol,contract,rows,complete);
   }
   if(complete){completed.add(contract);failed.delete(contract);return;}
   while(!destroyed&&!isHidden()&&rows.length){
