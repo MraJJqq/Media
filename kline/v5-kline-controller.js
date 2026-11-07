@@ -29,8 +29,8 @@ export function createV5KlineController({frame,client,instruments,isHidden=()=>d
    req.onerror=()=>{const old=memoryCache.get(contract);resolve({candles:old?.candles||[],historyComplete:old?.schemaVersion===CACHE_SCHEMA_VERSION&&old?.historyComplete===true});};
   });
  }
- async function writeCache(contract,rows,complete){
-  const next=mergeCandles(rows),record={contract,timeframe:"4H",schemaVersion:CACHE_SCHEMA_VERSION,updatedAt:Date.now(),historyComplete:complete===true,candleCount:next.length,oldestTimestamp:next[0]?.t??null,newestTimestamp:next[next.length-1]?.t??null,candles:next};
+ async function writeCache(contract,rows,complete,requestStatus="ok",errorMessage=""){
+  const next=mergeCandles(rows),record={contract,timeframe:"4H",schemaVersion:CACHE_SCHEMA_VERSION,updatedAt:Date.now(),historyComplete:complete===true,requestStatus,lastError:errorMessage||null,latestGap:false,internalGap:false,candleCount:next.length,oldestTimestamp:next[0]?.t??null,newestTimestamp:next[next.length-1]?.t??null,candles:next};
   const db=await dbPromise;if(!db){memoryCache.set(contract,record);return;}
   await new Promise(resolve=>{const tx=db.transaction(STORE_NAME,"readwrite");tx.objectStore(STORE_NAME).put(record);tx.oncomplete=tx.onerror=tx.onabort=()=>resolve()});
  }
@@ -135,7 +135,9 @@ export function createV5KlineController({frame,client,instruments,isHidden=()=>d
     if(completed.has(item.contract))continue;
     try{await backfillInstrument(item);if(!completed.has(item.contract)&&!isHidden())failed.delete(item.contract);}
     catch(error){
-     failed.set(item.contract,String(error?.message||error));
+     const message=String(error?.message||error);
+     failed.set(item.contract,message);
+     try{const snapshot=await readCache(item.contract);await writeCache(item.contract,snapshot.candles,false,isHidden()?"paused":"failed",message);}catch(_){}
      if(selected(item.symbol,item.contract))setStatus(item.symbol,isHidden()?"paused":"request-failed",error);
      if(isHidden())break;
     }
