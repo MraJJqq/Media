@@ -1,5 +1,5 @@
 import{createVegasEmaOverlay}from"./v5-vegas-ema.js?v=ema-range-4";
-import{VIEWPORT_STORAGE_KEY,captureViewportState,normalizeViewportState,removeLegacyViewportState,resolveViewportRight}from"./v5-viewport-state.js?v=viewport-state-3";
+import{VIEWPORT_STORAGE_KEY,captureViewportState,normalizeViewportState,removeLegacyViewportState,resolveViewportRight}from"./v5-viewport-state.js?v=viewport-state-4";
 export function createV5KlineView({host,onInteractionChange=()=>{}}){
 if(!host)throw new TypeError("K-line host element is required");
 const abort=new AbortController(),{signal}=abort,canvas=document.createElement("canvas");
@@ -40,7 +40,7 @@ function end(e){if(!P.delete(e.pointerId))return;activePointers=Math.max(0,activ
 canvas.addEventListener("pointerup",end,{signal});canvas.addEventListener("pointercancel",end,{signal});canvas.addEventListener("lostpointercapture",e=>end({pointerId:e.pointerId,type:"pointercancel",timeStamp:e.timeStamp}),{signal});
 canvas.addEventListener("wheel",e=>{e.preventDefault();if(e.deltaX===0&&e.deltaY===0)return;interaction(true);if(wheelEndTimer!==null)clearTimeout(wheelEndTimer);wheelEndTimer=setTimeout(()=>{wheelEndTimer=null;interaction(false)},350);if(Math.abs(e.deltaX)>Math.abs(e.deltaY)&&!e.ctrlKey)setRight(right+e.deltaX/barW);else{const x=pos(e).x,ai=iAt(x);barW=clamp(barW*Math.exp(-e.deltaY*(e.ctrlKey?.01:.0015)),MINW,MAXW);setRight(ai-.5+(W-x)/barW)}saveViewport();ask()},{passive:false,signal});
 canvas.addEventListener("touchmove",e=>e.preventDefault(),{passive:false,signal});canvas.addEventListener("contextmenu",e=>e.preventDefault(),{signal});["gesturestart","gesturechange","gestureend"].forEach(n=>canvas.addEventListener(n,e=>e.preventDefault(),{signal}));
-const observer=new ResizeObserver(resize);observer.observe(host);resize();
+const observer=new ResizeObserver(resize);observer.observe(host);window.addEventListener("pagehide",saveViewport,{signal});document.addEventListener("visibilitychange",()=>{if(document.hidden)saveViewport()},{signal});resize();
 function setCandles(a){C=Array.isArray(a)?a:[];inited=false;vel=0;if(!C.length){ask();return;}if(viewportState){barW=viewportState.barW;const mapped=resolveViewportRight(C,viewportState,W);if(mapped!==null)right=mapped;else setRight(C.length-1+RIGHT_GAP_BARS);}else{setRight(C.length-1+RIGHT_GAP_BARS);saveViewport();}setRight(right);ask();}
 function setVegasEmaCandles(a){overlay.setCandles(a)}
 function setHistoryStatus(symbol,count,complete,state,error){
