@@ -1,5 +1,5 @@
 """
-背景 3：时空隧道（螺旋收束的光圈，尽头一点暖光，整体偏暗），1920x1080 PNG
+背景 3：时空隧道（螺旋收束的光圈，中心无暖光，整体偏暗），1920x1080 PNG
 依赖：pip install numpy scipy pillow
 用法：python bg_3_tunnel.py   # 在当前目录生成 bg3_time_tunnel.png
 """
@@ -72,8 +72,6 @@ def tunnel():
 
     L, S = to_arr(im), to_arr(im2)
     img += L * 0.55 + blur(L, 3) * 0.7 + blur(L, 14) * 0.35 + S * 0.45 + blur(S, 2) * 0.5
-    glow(img, cx, cy, 300, 240, (255, 170, 100), 0.32, 2.0)
-    glow(img, cx, cy, 90, 70, (255, 215, 170), 0.30, 1.5)
     finish(img, "bg3_time_tunnel", exposure=1.0, vig=0.75, seed=3)
 
 if __name__ == "__main__":
