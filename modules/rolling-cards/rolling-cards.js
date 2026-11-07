@@ -31,7 +31,7 @@ for(var i=0;i<N;i++){
   var e=tpl.cloneNode(true),name=SYMS[i][0],ic=e.querySelector(".ico");
   e.dataset.symbol=name;
   var logo=logos[name];
-  if(logo){ic.src=(logo==="bitcoin"||logo==="hyperliquid"||logo==="gold"||logo==="crude-oil"?"https://mrajjqq.github.io/Media/Logos/Core/":"https://mrajjqq.github.io/Media/Logos/Stocks/")+logo+".svg";ic.alt=name;}
+  if(logo){ic.dataset.src=(logo==="bitcoin"||logo==="hyperliquid"||logo==="gold"||logo==="crude-oil"?"https://mrajjqq.github.io/Media/Logos/Core/":"https://mrajjqq.github.io/Media/Logos/Stocks/")+logo+".svg";ic.alt=name;ic.loading="lazy";ic.decoding="async";}
   else{ic.remove();}
   e.querySelector(".nm").textContent=name+"USDT";
   els.push(e);pe.push(e.querySelector(".price"));ce.push(e.querySelector(".chg"));
@@ -73,13 +73,14 @@ function layout(){
 
 /* ---- 渲染：每帧只写 transform / 透明度；样式类在运动中不再切换 ---- */
 var pos=0;
+function loadLogo(i){var img=els[i].querySelector(".ico");if(img&&!img.getAttribute("src")&&img.dataset.src)img.src=img.dataset.src;}
 function render(calm){
   for(var slot=0;slot<N;slot++){
     var i=order[slot];
     var f=pos+slot*step;f-=TAU*Math.round(f/TAU);
     var a=f<0?-f:f,e=els[i];
-    if(a>=A){if(!hid[i]){hid[i]=1;op[i]=0;e.style.opacity=0}e.style.pointerEvents="none";continue}   // 背面：透明且不再更新
-    if(hid[i]){hid[i]=0;e.style.pointerEvents="auto";if(dirty[i])flush(i)}                           // 入场时文字已就绪
+    if(a>=A){if(!hid[i]){hid[i]=1;op[i]=0;e.style.opacity=0;e.classList.remove("is-visible");e.style.pointerEvents="none"}continue}   // 背面：透明且不再更新
+    if(hid[i]){hid[i]=0;e.classList.add("is-visible");e.style.pointerEvents="auto";loadLogo(i);if(dirty[i])flush(i)}                           // 入场时文字已就绪
     else if(calm&&dirty[i])flush(i);
     var c=Math.cos(f);
     e.style.transform="translate3d("+(x0+Math.sin(f)*Rx).toFixed(1)+"px,"+(y0-(1-c)*Ry).toFixed(1)+"px,0) scale("+(bs*(.62+.38*c)).toFixed(3)+")";
