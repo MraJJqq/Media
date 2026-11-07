@@ -14,7 +14,11 @@
  padding:0!important;
  border:0!important;
  background:transparent!important;
+ color-scheme:dark;
+ opacity:0;
+ transition:opacity .12s ease-out;
  overflow:visible!important;
  isolation:isolate;
  pointer-events:auto!important;
 }
+#timeframe-frame.is-ready{opacity:1!important}
