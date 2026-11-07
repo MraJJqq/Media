@@ -1,0 +1,20 @@
+/* Host-page contract for the timeframe iframe.
+   Keep this layer above K-line, logo, cards and ticker. The iframe viewport
+   is intentionally larger than the four-button stack to prevent clipping. */
+#timeframe-frame{
+ position:fixed!important;
+ z-index:2147483647!important;
+ left:calc(8px + env(safe-area-inset-left,0px))!important;
+ bottom:env(safe-area-inset-bottom,0px)!important;
+ top:auto!important;
+ display:block!important;
+ width:104px!important;
+ height:240px!important;
+ margin:0!important;
+ padding:0!important;
+ border:0!important;
+ background:transparent!important;
+ overflow:visible!important;
+ isolation:isolate;
+ pointer-events:auto!important;
+}
