@@ -72,6 +72,30 @@ export function createV5KlineController({frame,client,instruments,isHidden=()=>d
   }
   return merged;
  }
+ async function repairInternalGaps(contract,rows,item){
+  let merged=rows,guard=0;
+  while(!destroyed&&!isHidden()&&guard++<10000){
+   let left=null,right=null;
+   for(let i=1;i<merged.length;i++){
+    if(merged[i].t-merged[i-1].t>FOUR_HOURS_MS){left=merged[i-1].t;right=merged[i].t;break;}
+   }
+   if(left===null)return merged;
+   let end=right;
+   while(!destroyed&&!isHidden()&&end>left+FOUR_HOURS_MS){
+    const page=await historyPage(contract,end);
+    if(!page.length)throw new Error("internal-history-gap-unresolved");
+    const nextEnd=page[0].t;
+    if(nextEnd>=end)throw new Error("internal-history-gap-pagination-stalled");
+    merged=mergeCandles(merged,page);
+    await writeCache(contract,merged,false);
+    publishIfSelected(item.symbol,contract,merged,false);
+    end=nextEnd;
+    if(page.length<HISTORY_PAGE_SIZE&&end>left+FOUR_HOURS_MS)throw new Error("internal-history-gap-incomplete");
+   }
+  }
+  if(guard>=10000)throw new Error("internal-history-gap-limit");
+  return merged;
+ }
  function publishIfSelected(symbol,contract,rows,complete){
   if(!selected(symbol,contract))return;
   candles=rows;historyComplete=complete;render();
@@ -85,6 +109,7 @@ export function createV5KlineController({frame,client,instruments,isHidden=()=>d
   if(fresh.length){
    if(rows.length){rows=await fillRecentGap(contract,rows,fresh,item);}
    else rows=mergeCandles(rows,fresh);
+   rows=await repairInternalGaps(contract,rows,item);
    await writeCache(contract,rows,complete);
    publishIfSelected(symbol,contract,rows,complete);
   }
