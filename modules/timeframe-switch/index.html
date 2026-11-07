@@ -25,12 +25,13 @@ html,body{height:100%;margin:0;background:transparent;font-family:'Chakra Petch'
 </div>
 <script>
 const bs=[...document.querySelectorAll('.tf button')];
+function setTimeframe(value){bs.forEach(b=>{const active=b.textContent.trim()===value;b.setAttribute("aria-pressed",String(active));b.style.transform="";});}
+window.addEventListener("message",event=>{if(event.origin!==location.origin||event.source!==window.parent)return;if(event.data?.type==="VEGAS_TIMEFRAME_SET")setTimeframe(event.data.timeframe);});
 const base=b=>b.getAttribute('aria-pressed')==='true'?'translateZ(24px)':'';
 bs.forEach(b=>{
   b.addEventListener('click',()=>{
     bs.forEach(o=>{o.setAttribute('aria-pressed',o===b);o.style.transform=''});
-    // 切换周期时的回调：在这里接你的K线/信号逻辑
-    // onTimeframe(b.textContent)
+    window.parent.postMessage({type:"VEGAS_TIMEFRAME_SELECT",timeframe:b.textContent.trim()},location.origin);
   });
   b.addEventListener('pointermove',e=>{
     const r=b.getBoundingClientRect(),x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.height;

@@ -2,7 +2,8 @@ const LOGOS=Object.freeze({
  AAPL:["apple","Stocks"],MSFT:["microsoft","Stocks"],GOOGL:["google","Stocks"],AMZN:["amazon","Stocks"],NVDA:["nvidia","Stocks"],TSLA:["tesla","Stocks"],META:["meta","Stocks"],INTC:["intel","Stocks"],QCOM:["qualcomm","Stocks"],AMD:["amd","Stocks"],TSM:["tsmc","Stocks"],AVGO:["broadcom","Stocks"],ORCL:["oracle","Stocks"],ARM:["arm","Stocks"],MU:["micron","Stocks"],ASML:["asml","Stocks"],SNDK:["sandisk","Stocks"],SKHYNIX:["sk-hynix","Stocks"],MRVL:["marvell","Stocks"],GLW:["corning","Stocks"],HOOD:["robinhood","Stocks"],CBRS:["cerence","Stocks"],SPCX:["spacex","Stocks"],BTC:["bitcoin","Core"],HYPE:["hyperliquid","Core"],XAU:["gold","Core"],CL:["crude-oil","Core"]
 });
 const ROOT="https://mrajjqq.github.io/Media/Logos/";
-let intervalMs=14400000;
+const TIMEFRAME_MS=Object.freeze({"1H":3600000,"4H":14400000,"8H":28800000,"D":86400000});
+let intervalMs=TIMEFRAME_MS["4H"];
 const brand=document.getElementById("logo-brand"),image=document.getElementById("logo-image"),label=document.getElementById("logo-symbol"),countdown=document.getElementById("logo-countdown");
 let current="",pending=null,transitioning=false,clockTimer=null;
 function apply(symbol){
@@ -44,9 +45,9 @@ function scheduleClock(){
 function startClock(){if(clockTimer!==null)return;renderCountdown();scheduleClock();}
 function stopClock(){if(clockTimer!==null)window.clearTimeout(clockTimer);clockTimer=null;}
 function setTimeframe(value){
- if(value==="4H")intervalMs=14400000;
- else if(value==="8H")intervalMs=28800000;
- else return;
+ const next=TIMEFRAME_MS[value];
+ if(!next)return;
+ intervalMs=next;
  countdown.setAttribute("aria-label","当前"+value+"K线剩余时间");
  renderCountdown();
 }
