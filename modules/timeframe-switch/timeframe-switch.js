@@ -1,6 +1,6 @@
 (() => {
   const buttons = [...document.querySelectorAll(".tf button[data-timeframe]")];
-  const baseTransform = button => button.getAttribute("aria-pressed") === "true" ? "translateZ(24px)" : "";
+  const baseTransform = button => button.getAttribute("aria-pressed") === "true" ? "translateZ(12px)" : "";
   function setActive(timeframe) {
     for (const button of buttons) {
       button.setAttribute("aria-pressed", String(button.dataset.timeframe === timeframe));
