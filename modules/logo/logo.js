@@ -2,10 +2,9 @@ const LOGOS=Object.freeze({
  AAPL:["apple","Stocks"],MSFT:["microsoft","Stocks"],GOOGL:["google","Stocks"],AMZN:["amazon","Stocks"],NVDA:["nvidia","Stocks"],TSLA:["tesla","Stocks"],META:["meta","Stocks"],INTC:["intel","Stocks"],QCOM:["qualcomm","Stocks"],AMD:["amd","Stocks"],TSM:["tsmc","Stocks"],AVGO:["broadcom","Stocks"],ORCL:["oracle","Stocks"],ARM:["arm","Stocks"],MU:["micron","Stocks"],ASML:["asml","Stocks"],SNDK:["sandisk","Stocks"],SKHYNIX:["sk-hynix","Stocks"],MRVL:["marvell","Stocks"],GLW:["corning","Stocks"],HOOD:["robinhood","Stocks"],CBRS:["cerence","Stocks"],SPCX:["spacex","Stocks"],BTC:["bitcoin","Core"],HYPE:["hyperliquid","Core"],XAU:["gold","Core"],CL:["crude-oil","Core"]
 });
 const ROOT="https://mrajjqq.github.io/Media/Logos/";
-const SERVER_TIME_URL="https://api.bitget.com/api/v2/public/time";
-const FOUR_HOURS_MS=14400000;
+let intervalMs=14400000;
 const brand=document.getElementById("logo-brand"),image=document.getElementById("logo-image"),label=document.getElementById("logo-symbol"),countdown=document.getElementById("logo-countdown");
-let current="",pending=null,transitioning=false,serverTimeAtSync=null,performanceAtSync=null,syncBusy=false,clockTimer=null,syncTimer=null;
+let current="",pending=null,transitioning=false,clockTimer=null;
 function apply(symbol){
  const entry=LOGOS[symbol];
  if(!entry){image.hidden=true;image.removeAttribute("src");label.textContent="";current=symbol||"";return;}
@@ -22,59 +21,43 @@ function setSymbol(symbol){
   window.setTimeout(()=>{transitioning=false;},1500);
  },1500);
 }
-function exchangeNow(){
- if(serverTimeAtSync===null||performanceAtSync===null)return null;
- return serverTimeAtSync+(performance.now()-performanceAtSync);
-}
 function renderCountdown(){
- const now=exchangeNow();
- if(!current||now===null){countdown.hidden=true;return;}
- const nextClose=(Math.floor(now/FOUR_HOURS_MS)+1)*FOUR_HOURS_MS;
+ // Date.now() reads the device's system clock (iPhone when opened on iPhone).
+ const now=Date.now();
+ if(!current){countdown.hidden=true;return;}
+ const nextClose=(Math.floor(now/intervalMs)+1)*intervalMs;
  const remainingMinutes=Math.max(0,Math.ceil((nextClose-now)/60000));
  const hours=Math.floor(remainingMinutes/60),minutes=remainingMinutes%60;
  countdown.textContent=[hours,minutes].map(v=>String(v).padStart(2,"0")).join(":");
  countdown.hidden=false;
 }
-async function syncExchangeTime(){
- if(syncBusy||document.visibilityState==="hidden")return;
- syncBusy=true;const start=performance.now();
- try{
-  const response=await fetch(SERVER_TIME_URL,{method:"GET",cache:"no-store"});
-  if(!response.ok)throw new Error("Bitget server-time HTTP "+response.status);
-  const payload=await response.json(),end=performance.now(),serverTime=Number(payload?.data?.serverTime);
-  if(payload?.code!=="00000"||!Number.isFinite(serverTime)||serverTime<=0)throw new Error("Invalid Bitget server-time response");
-  serverTimeAtSync=serverTime;performanceAtSync=(start+end)/2;renderCountdown();scheduleClock();
- }catch(error){console.warn("[VEGAS Logo 4H countdown] server-time sync failed",error);}
- finally{syncBusy=false;}
-}
 function scheduleClock(){
  if(clockTimer!==null)window.clearTimeout(clockTimer);
- const now=exchangeNow();
- const delay=now===null?1000:Math.max(50,60000-(now%60000)+25);
+ const now=Date.now();
+ const delay=Math.max(50,60000-(now%60000)+25);
  clockTimer=window.setTimeout(()=>{
   clockTimer=null;
   renderCountdown();
-  scheduleClock();
+  if(document.visibilityState!=="hidden")scheduleClock();
  },delay);
 }
-function startClock(){
- if(clockTimer!==null||syncTimer!==null)return;
- void syncExchangeTime();
- scheduleClock();
- syncTimer=window.setInterval(syncExchangeTime,60000);
-}
-function stopClock(){
- if(clockTimer!==null)window.clearTimeout(clockTimer);
- if(syncTimer!==null)window.clearInterval(syncTimer);
- clockTimer=syncTimer=null;
+function startClock(){if(clockTimer!==null)return;renderCountdown();scheduleClock();}
+function stopClock(){if(clockTimer!==null)window.clearTimeout(clockTimer);clockTimer=null;}
+function setTimeframe(value){
+ if(value==="4H")intervalMs=14400000;
+ else if(value==="8H")intervalMs=28800000;
+ else return;
+ countdown.setAttribute("aria-label","当前"+value+"K线剩余时间");
+ renderCountdown();
 }
 window.addEventListener("message",event=>{
- if(event.origin!=="https://mrajjqq.github.io")return;
+ if(event.origin!=="https://mrajjqq.github.io"&&event.origin!==location.origin)return;
  if(event.data?.type==="VEGAS_LOGO_SET_SYMBOL")setSymbol(event.data.symbol);
+ if(event.data?.type==="VEGAS_LOGO_SET_TIMEFRAME")setTimeframe(event.data.timeframe);
 });
 document.addEventListener("visibilitychange",()=>{
  if(document.visibilityState==="hidden")stopClock();
- else{startClock();renderCountdown();}
+ else startClock();
 });
 brand.style.opacity="0";
 startClock();
