@@ -1,0 +1,19 @@
+@font-face{font-family:'Chakra Petch';src:url('../../assets/fonts/ChakraPetch-Bold.ttf') format('truetype');font-style:normal;font-weight:700;font-display:swap}
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+html,body{width:100%;height:100%;margin:0;overflow:hidden;background:transparent}
+body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}
+#logo-brand{position:absolute;inset:0;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:3px;padding:0 clamp(6px,1.7vw,12px) 0 0;color:#e8f5ff;pointer-events:none;text-shadow:0 1px 7px rgba(0,0,0,.8);opacity:1;transition:opacity 1.5s ease-in-out}
+#logo-line{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-height:50px;font:700 48px/1.05 Inter,-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif}
+#logo-image{width:48px;height:48px;object-fit:contain;display:block;filter:drop-shadow(0 0 6px rgba(160,220,255,.28))}
+#logo-image[hidden]{display:none}
+#logo-symbol{font-size:22px;white-space:nowrap}
+#logo-countdown{display:block;min-height:23px;padding-right:1px;color:rgba(169,234,255,.72);font:700 22px/1.05 "Chakra Petch",sans-serif;letter-spacing:.04em;font-variant-numeric:tabular-nums;white-space:nowrap}
+
+@media (orientation:landscape) and (max-height:500px){
+  #logo-brand{gap:1px;padding-right:clamp(5px,1.2vw,9px)}
+  #logo-line{gap:clamp(4px,1vw,7px);min-height:0;font-size:clamp(30px,8vh,42px)}
+  #logo-image{width:clamp(30px,8vh,42px);height:clamp(30px,8vh,42px)}
+  #logo-symbol{font-size:clamp(15px,3.8vh,20px)}
+  #logo-countdown{min-height:0;font-size:clamp(14px,3.6vh,18px)}
+}

@@ -1,0 +1,66 @@
+const LOGOS=Object.freeze({
+ AAPL:["apple","Stocks"],MSFT:["microsoft","Stocks"],GOOGL:["google","Stocks"],AMZN:["amazon","Stocks"],NVDA:["nvidia","Stocks"],TSLA:["tesla","Stocks"],META:["meta","Stocks"],INTC:["intel","Stocks"],QCOM:["qualcomm","Stocks"],AMD:["amd","Stocks"],TSM:["tsmc","Stocks"],AVGO:["broadcom","Stocks"],ORCL:["oracle","Stocks"],ARM:["arm","Stocks"],MU:["micron","Stocks"],ASML:["asml","Stocks"],SNDK:["sandisk","Stocks"],SKHYNIX:["sk-hynix","Stocks"],MRVL:["marvell","Stocks"],GLW:["corning","Stocks"],HOOD:["robinhood","Stocks"],CBRS:["cerence","Stocks"],SPCX:["spacex","Stocks"],BTC:["bitcoin","Core"],HYPE:["hyperliquid","Core"],XAU:["gold","Core"],CL:["crude-oil","Core"]
+});
+const ROOT="../../assets/logos/";
+const TIMEFRAME_MS=Object.freeze({"1H":3600000,"4H":14400000,"8H":28800000,"D":86400000});
+let intervalMs=TIMEFRAME_MS["4H"];
+const brand=document.getElementById("logo-brand"),image=document.getElementById("logo-image"),label=document.getElementById("logo-symbol"),countdown=document.getElementById("logo-countdown");
+let current="",pending=null,transitioning=false,clockTimer=null;
+function apply(symbol){
+ const entry=LOGOS[symbol];
+ if(!entry){image.hidden=true;image.removeAttribute("src");label.textContent="";current=symbol||"";return;}
+ image.src=ROOT+entry[1]+"/"+entry[0]+".svg";
+ image.alt=symbol;image.hidden=false;label.textContent=symbol;current=symbol;renderCountdown();
+}
+function setSymbol(symbol){
+ if(typeof symbol!=="string"||!symbol||symbol===current||transitioning)return;
+ if(!current){apply(symbol);brand.style.opacity="1";return;}
+ pending=symbol;transitioning=true;brand.style.opacity="0";
+ window.setTimeout(()=>{
+  if(pending)apply(pending);
+  pending=null;brand.style.opacity="1";
+  window.setTimeout(()=>{transitioning=false;},1500);
+ },1500);
+}
+function renderCountdown(){
+ // Date.now() reads the device's system clock (iPhone when opened on iPhone).
+ const now=Date.now();
+ if(!current){countdown.hidden=true;return;}
+ const nextClose=(Math.floor(now/intervalMs)+1)*intervalMs;
+ const remainingMinutes=Math.max(0,Math.ceil((nextClose-now)/60000));
+ const hours=Math.floor(remainingMinutes/60),minutes=remainingMinutes%60;
+ countdown.textContent=[hours,minutes].map(v=>String(v).padStart(2,"0")).join(":");
+ countdown.hidden=false;
+}
+function scheduleClock(){
+ if(clockTimer!==null)window.clearTimeout(clockTimer);
+ const now=Date.now();
+ const delay=Math.max(50,60000-(now%60000)+25);
+ clockTimer=window.setTimeout(()=>{
+  clockTimer=null;
+  renderCountdown();
+  if(document.visibilityState!=="hidden")scheduleClock();
+ },delay);
+}
+function startClock(){if(clockTimer!==null)return;renderCountdown();scheduleClock();}
+function stopClock(){if(clockTimer!==null)window.clearTimeout(clockTimer);clockTimer=null;}
+function setTimeframe(value){
+ const next=TIMEFRAME_MS[value];
+ if(!next)return;
+ intervalMs=next;
+ countdown.setAttribute("aria-label","当前"+value+"K线剩余时间");
+ renderCountdown();
+}
+window.addEventListener("message",event=>{
+ if(event.origin!==location.origin||event.source!==window.parent)return;
+ const data=event.data;
+ if(!data||typeof data!=="object")return;
+ if(data.type==="VEGAS_LOGO_SET_SYMBOL"&&typeof data.symbol==="string"&&Object.hasOwn(LOGOS,data.symbol))setSymbol(data.symbol);
+ if(data.type==="VEGAS_LOGO_SET_TIMEFRAME"&&typeof data.timeframe==="string"&&Object.hasOwn(TIMEFRAME_MS,data.timeframe))setTimeframe(data.timeframe);
+});
+document.addEventListener("visibilitychange",()=>{
+ if(document.visibilityState==="hidden")stopClock();
+ else startClock();
+});
+brand.style.opacity="0";
+startClock();
