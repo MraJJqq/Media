@@ -30,7 +30,7 @@ export function createV5KlineController({frame,client,instruments,isHidden=()=>d
   });
  }
  async function writeCache(contract,rows,complete,requestStatus="ok",errorMessage=""){
-  const next=mergeCandles(rows),record={contract,timeframe:"4H",schemaVersion:CACHE_SCHEMA_VERSION,updatedAt:Date.now(),historyComplete:complete===true,requestStatus,lastError:errorMessage||null,latestGap:false,internalGap:false,candleCount:next.length,oldestTimestamp:next[0]?.t??null,newestTimestamp:next[next.length-1]?.t??null,candles:next};
+  const next=mergeCandles(rows),record={contract,timeframe:"4H",schemaVersion:CACHE_SCHEMA_VERSION,updatedAt:Date.now(),historyComplete:complete===true,requestStatus,lastError:errorMessage||null,latestGap:null,internalGap:null,candleCount:next.length,oldestTimestamp:next[0]?.t??null,newestTimestamp:next[next.length-1]?.t??null,candles:next};
   const db=await dbPromise;if(!db){memoryCache.set(contract,record);return;}
   await new Promise(resolve=>{const tx=db.transaction(STORE_NAME,"readwrite");tx.objectStore(STORE_NAME).put(record);tx.oncomplete=tx.onerror=tx.onabort=()=>resolve()});
  }
