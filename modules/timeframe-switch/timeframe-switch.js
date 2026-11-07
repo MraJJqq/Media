@@ -27,6 +27,7 @@
     if (event.origin !== location.origin || event.source !== window.parent) return;
     if (event.data?.type === "VEGAS_GATE_TIMEFRAME_STATE" && ["4H","8H"].includes(event.data.timeframe)) {
       setActive(event.data.timeframe);
+      window.parent.postMessage({type:"VEGAS_GATE_TIMEFRAME_READY"}, location.origin);
     }
   });
 })();
