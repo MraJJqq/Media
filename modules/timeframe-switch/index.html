@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>周期切换</title>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@700&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#e8f0ff;--mute:#7f8db0;--up:#2ee6a6;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:transparent;font-family:'Chakra Petch',ui-sans-serif,system-ui,sans-serif;-webkit-user-select:none;user-select:none}
+.tf{position:fixed;left:calc(18px + env(safe-area-inset-left,0px));top:calc(14px + env(safe-area-inset-top,0px));display:flex;flex-direction:column;align-items:flex-start;gap:4px;perspective:700px}
+.tf button{border:0;background:none;padding:2px 8px;min-height:44px;font:700 22px/1.05 'Chakra Petch',sans-serif;color:var(--mute);cursor:pointer;transform-style:preserve-3d;-webkit-tap-highlight-color:transparent;
+  transition:font-size .35s cubic-bezier(.2,.8,.2,1),color .35s,transform .35s cubic-bezier(.2,.8,.2,1),filter .35s}
+.tf button[aria-pressed="true"]{font-size:48px;color:var(--ink);transform:translateZ(24px);filter:drop-shadow(0 0 12px rgba(46,230,166,.7)) drop-shadow(0 10px 14px rgba(0,0,0,.6))}
+.tf button:focus-visible{outline:2px solid var(--up);outline-offset:2px;border-radius:8px}
+</style>
+</head>
+<body>
+<div class="tf" role="group" aria-label="周期">
+  <button aria-pressed="false">1H</button>
+  <button aria-pressed="true">4H</button>
+  <button aria-pressed="false">8H</button>
+  <button aria-pressed="false">D</button>
+</div>
+<script>
+const bs=[...document.querySelectorAll('.tf button')];
+const base=b=>b.getAttribute('aria-pressed')==='true'?'translateZ(24px)':'';
+bs.forEach(b=>{
+  b.addEventListener('click',()=>{
+    bs.forEach(o=>{o.setAttribute('aria-pressed',o===b);o.style.transform=''});
+    // 切换周期时的回调：在这里接你的K线/信号逻辑
+    // onTimeframe(b.textContent)
+  });
+  b.addEventListener('pointermove',e=>{
+    const r=b.getBoundingClientRect(),x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.height;
+    b.style.transform=`${base(b)} rotateX(${(.5-y)*18}deg) rotateY(${(x-.5)*18}deg)`;
+  });
+  b.addEventListener('pointerleave',()=>{b.style.transform=''});
+});
+</script>
+</body>
+</html>
