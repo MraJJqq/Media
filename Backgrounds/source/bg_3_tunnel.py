@@ -47,7 +47,7 @@ def tunnel():
     cx, cy = CX, H * 0.47
     img = canvas()
     img += vgrad((1, 2, 8), (3, 4, 14), 0, H)
-    glow(img, cx, cy, 1200, 800, (30, 50, 190), 0.35, 2.4)
+    # 中心不添加点光源，保留暗色空间与螺旋光圈
 
     im, d = new_layer()
     N, r = 40, 0.865
@@ -58,8 +58,8 @@ def tunnel():
         pts = [(cx + x * np.cos(ang) - y * np.sin(ang), cy + x * np.sin(ang) + y * np.cos(ang))
                for x, y in [(-hw, -hh), (hw, -hh), (hw, hh), (-hw, hh)]]
         t = k / (N - 1)
-        c = lerp(col((50, 100, 255)), col((255, 200, 120)), t ** 2.2) * 255
-        a = 0.10 + 0.9 * t ** 1.3
+        c = col((50, 100, 255)) * 255
+        a = 0.10 + 0.45 * t ** 1.3
         d.line(pts + [pts[0]], fill=scaled(c, a), width=3 if k < 20 else 2)
 
     im2, d2 = new_layer()
