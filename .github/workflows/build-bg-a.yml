@@ -1,0 +1,29 @@
+name: Build A background asset
+on:
+  push:
+    paths:
+      - ".github/workflows/build-bg-a.yml"
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install numpy scipy pillow
+      - name: Generate PNG
+        working-directory: Backgrounds/source
+        run: python bg_A_aurora.py
+      - name: Publish asset and remove temporary workflow
+        run: |
+          mkdir -p Backgrounds/generated
+          mv Backgrounds/source/bgA_aurora_curtain.png Backgrounds/generated/bgA_aurora_curtain.png
+          rm .github/workflows/build-bg-a.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Backgrounds/generated/bgA_aurora_curtain.png .github/workflows/build-bg-a.yml
+          git commit -m "Add generated A aurora background"
+          git push
