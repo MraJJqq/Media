@@ -7,7 +7,7 @@ body{position:fixed;inset:0}
 #kline-host{position:fixed;z-index:5;inset:0;display:block;width:100%;height:100%;margin:0;padding:0;border:0;background:transparent;overflow:hidden;pointer-events:auto;opacity:0;transition:opacity 1.5s ease-in-out}
 #kline-host.is-ready{opacity:1}
 #app.is-symbol-transitioning #kline-host{opacity:0}
-#logo-frame{position:fixed;z-index:10;top:env(safe-area-inset-top,0px);right:env(safe-area-inset-right,0px);display:block;width:clamp(210px,40vw,260px);height:clamp(80px,12vh,94px);margin:0;padding:0;border:0;background:transparent;overflow:hidden;pointer-events:none;opacity:0;transition:opacity .12s ease-out}
+#logo-frame{position:fixed;z-index:10;top:0;right:env(safe-area-inset-right,0px);display:block;width:clamp(210px,40vw,260px);height:clamp(80px,12vh,94px);margin:0;padding:0;border:0;background:transparent;overflow:hidden;pointer-events:none;opacity:0;transition:opacity .12s ease-out}
 #logo-frame.is-ready{opacity:1}
 
 #signal-ticker{position:fixed;z-index:var(--z-ticker);isolation:isolate;left:max(8px,env(safe-area-inset-left,0px));right:max(8px,env(safe-area-inset-right,0px));bottom:max(5px,env(safe-area-inset-bottom,0px));height:clamp(22px,3.2vh,26px);overflow:hidden;pointer-events:none;background:transparent;mask-image:linear-gradient(90deg,transparent,#000 3%,#000 97%,transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 3%,#000 97%,transparent)}
