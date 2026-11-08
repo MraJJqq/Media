@@ -1,19 +1,20 @@
 # VEGAS V6 — System Modules & Operating Flows
 
-This directory is the reusable source snapshot of the V6 system as of commit `c9be0978f30f2e20307d8c184966b378941b87f9`. The source files are copied without changing their contents. Existing Media assets and project files remain untouched.
+This directory is the reusable source snapshot of the V6 system as of V6 commit `b9773b11cfe5c2d79c82d4505c3af7b67bb1a3c3`. The source files are copied without changing their contents. Existing Media assets and project files remain untouched.
 
 ## Scope
 
-This package records the five display/runtime systems and the connected signal ticker:
+This package records the seven V6 systems:
 
-1. Shared viewport and page lifecycle coordination.
-2. Rolling market-card system.
-3. Logo and countdown system.
-4. Timeframe selector.
-5. Gate K-line system.
-6. V12 signal feed and bottom ticker.
+1. K-line system.
+2. Viewport and gesture system.
+3. Rolling market-card system.
+4. Logo and countdown system.
+5. Timeframe selector system.
+6. V12 signal feed and bottom ticker system.
+7. Full-screen dynamic system: responsive viewport sizing, portrait/landscape rules and safe-area adaptation.
 
-Background artwork and background-generation files are intentionally outside this synchronization scope.
+Background artwork is maintained in `../Backgrounds/`; the background-generation source is maintained in `../Backgrounds/source/`. These assets are intentionally stored outside this V6 runtime snapshot.
 
 ## Page boot and system orchestration
 
@@ -46,7 +47,7 @@ Responsibilities:
 - Coordinate page visibility, pagehide/pageshow and suspended/resumed work.
 - Own page-level timers and cleanups; prevent hidden-page polling and animation work.
 - Coordinate symbol selection, timeframe changes, K-line state and user-interaction locks.
-- Keep layout and responsive presentation in the host stylesheet; the individual modules retain their own internal sizing and rendering rules.
+- Apply shared responsive sizing through `assets/css/full-screen-dynamic.css`; adapt dynamic viewport height, portrait/landscape layouts and safe-area boundaries without changing K-line, gesture, card, Logo or signal business logic.
 
 ## Rolling market cards
 
@@ -132,16 +133,17 @@ Operating flow:
 - Font: `assets/fonts/ChakraPetch-Bold.ttf`.
 - App icons: `assets/icons/App-Icon.svg` and `assets/icons/App-Icon-180.png`.
 - Shared host layout: `assets/css/v6-modules.css`.
+- Full-screen dynamic system: `assets/css/full-screen-dynamic.css`.
 - Runtime data providers: Gate USDT perpetual REST/WebSocket APIs and the V12 public JSON feed.
 - Browser capabilities: Fetch, WebSocket, IndexedDB, localStorage, postMessage, Page Visibility API, ResizeObserver and animation-frame scheduling.
 
 ## Validation checklist
 
-- Confirm all relative imports and asset paths resolve within this V6 package, excluding the deliberately out-of-scope background artwork.
+- Confirm all relative imports and runtime asset paths resolve within this V6 package; background artwork and its generator are maintained separately under `../Backgrounds/`.
 - Confirm all 27 symbols have a Gate contract mapping and local logo mapping.
 - Confirm all four intervals propagate from selector → host runtime → K-line controller → Logo countdown.
 - Confirm hidden-page suspension stops polling/animation work and visible-page restoration resumes it.
 - Confirm K-line history/cache/live update and viewport persistence.
 - Confirm V12 payload validation rejects stale-day, partial-pool, duplicate or foreign-symbol data.
-- Confirm cards, Logo, timeframe selector, K-line and ticker remain independent child modules coordinated by the host runtime.
+- Confirm cards, Logo, timeframe selector, K-line, ticker and full-screen dynamic adaptation remain coordinated without altering their locked business behavior.
 
