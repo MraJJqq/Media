@@ -62,12 +62,17 @@ for(var j=0;j<N;j++)flush(j);
 var Wd=0,Hd=0,bs=1,Rx=1,Ry=0,x0=0,y0=0;
 function layout(){
   Wd=vp.clientWidth;Hd=vp.clientHeight;
-  var cw=Math.min(Wd/8.4,Hd*1.5);
-  bs=cw/W;
-  Rx=cw*1.08/step;                       // 正面相邻卡片间距 ≈ 卡片宽
-  Ry=CURVE*Hd/(1-Math.cos(A));           // 两侧上翘幅度
+  /* 小屏减少可见卡片数量，优先保证卡片文字可读；卡片原始样式与交互不变。 */
+  SHOW=Wd<500?2.2:Wd<900?2.8:3.6;
+  A=SHOW*step;
+  var maxCardW=Math.min(W,Math.max(112,Math.min(172,Wd/3.2)));
+  var maxCardH=Math.min(H,Math.max(58,Hd*.78));
+  bs=Math.min(maxCardW/W,maxCardH/H);
+  var cw=W*bs;
+  Rx=cw*1.08/step;
+  Ry=CURVE*Hd/(1-Math.cos(A));
   x0=Wd/2-W/2;
-  y0=Hd*.96-cw*H/W/2-H/2;                // 正面一排贴近底部
+  y0=Hd*.96-cw*H/W/2-H/2;
   render(true);
 }
 

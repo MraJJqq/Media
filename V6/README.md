@@ -21,3 +21,7 @@
 - K 线/Logo 按 V5 编排层节奏轮播；K 线手势或卡片拖动期间暂停轮播。
 - 卡片点选切换当前品种；周期模块将选择同步给 K 线和 Logo 倒计时。
 - 卡片行情来自 Gate futures tickers；V12 信号栏读取 V12 公共信号文件。
+
+
+## 全屏幕动态系统
+V6 全部板块统一使用 `assets/css/full-screen-dynamic.css` 作为响应式尺寸规范。覆盖全屏视窗、横竖屏、安全区域、周期控件、卡片可读性与底部信号栏；K线业务、手势、轮播和信号逻辑保持不变。完整规则见 `../UI/full-screen-dynamic-system.md`。
