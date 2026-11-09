@@ -1,6 +1,6 @@
 # VEGAS V6 — System Modules & Operating Flows
 
-This directory is the reusable source snapshot of the V6 system as of V6 commit `b9773b11cfe5c2d79c82d4505c3af7b67bb1a3c3`. The source files are copied without changing their contents. Existing Media assets and project files remain untouched.
+This directory documents the seven V6 systems and accompanies the 56-file source/resource snapshot matching V6 commit `168f1b40a29d1d0e72ad6aa325670404da1f3a30`. The 56 archived files match the corresponding V6 repository files byte-for-byte. The GitHub Pages workflow and generated background output are build/deployment artifacts and are not part of this snapshot; background artwork and its generator are maintained separately under `../Backgrounds/`. This Media-specific operating-flow document is not part of the V6 runtime repository.
 
 ## Scope
 
