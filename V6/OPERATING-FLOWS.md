@@ -1,6 +1,6 @@
 # VEGAS V6 — System Modules & Operating Flows
 
-This directory documents the seven V6 systems and accompanies the 56-file source/resource snapshot matching V6 commit `168f1b40a29d1d0e72ad6aa325670404da1f3a30`. The 56 archived files match the corresponding V6 repository files byte-for-byte. The GitHub Pages workflow and generated background output are build/deployment artifacts and are not part of this snapshot; background artwork and its generator are maintained separately under `../Backgrounds/`. This Media-specific operating-flow document is not part of the V6 runtime repository.
+This directory documents the seven V6 systems. Its baseline source snapshot was captured from V6 commit `168f1b40a29d1d0e72ad6aa325670404da1f3a30`; the full-screen dynamic system and directly coupled host styles were synchronized from V6 commit `d7f2fe3bee7d7fad00125b233b30bee5af1489c9`. The synchronized files are byte-identical to their current V6 counterparts. The GitHub Pages workflow and generated background output are build/deployment artifacts and are not part of this snapshot; background artwork and its generator are maintained separately under `../Backgrounds/`. This Media-specific operating-flow document is not part of the V6 runtime repository.
 
 ## Scope
 
@@ -39,6 +39,7 @@ Sources:
 - `modules/shared/config.js`
 - `modules/shared/universe-v6.js`
 - `modules/shared/gate-universe.js`
+- `assets/css/full-screen-dynamic.css`
 - `assets/css/v6-modules.css`
 - `modules/v6-runtime.js`
 
@@ -47,7 +48,8 @@ Responsibilities:
 - Coordinate page visibility, pagehide/pageshow and suspended/resumed work.
 - Own page-level timers and cleanups; prevent hidden-page polling and animation work.
 - Coordinate symbol selection, timeframe changes, K-line state and user-interaction locks.
-- Apply shared responsive sizing through `assets/css/full-screen-dynamic.css`; adapt dynamic viewport height, portrait/landscape layouts and safe-area boundaries without changing K-line, gesture, card, Logo or signal business logic.
+- The seventh system, `assets/css/full-screen-dynamic.css`, is the single authority for page-level viewport and outer-container geometry across the background, K-line, Logo iframe, timeframe iframe, rolling-card frame/ring/viewport and signal ticker. It owns dynamic viewport height, safe-area insets, portrait/landscape sizing and responsive constraints, including the Logo outer frame.
+- `assets/css/v6-modules.css`, `cards/rolling-cards.css` and `modules/timeframe-switch/host.css` retain presentation, animation and interaction responsibilities; they must not reintroduce competing page-root or outer-frame geometry.
 
 ## Rolling market cards
 
@@ -69,7 +71,7 @@ Sources:
 - `modules/logo/logo.html`
 - `modules/logo/logo.css`
 - `modules/logo/logo.js`
-- `modules/logo/host.css`
+- `assets/css/full-screen-dynamic.css` (Logo iframe outer geometry only)
 
 Operating flow:
 1. The host sends `VEGAS_LOGO_SET_SYMBOL` and `VEGAS_LOGO_SET_TIMEFRAME` messages to the same-origin Logo iframe.
@@ -82,7 +84,7 @@ Operating flow:
 
 Sources:
 - `modules/timeframe-switch/index.html`
-- `modules/timeframe-switch/host.css`
+- `modules/timeframe-switch/host.css` (presentation and interaction only; outer iframe geometry is owned by the full-screen dynamic system)
 
 Operating flow:
 1. Present the four native display intervals: `1H`, `4H`, `8H`, `D`.
@@ -132,8 +134,8 @@ Operating flow:
 - Logos: `assets/logos/Core` and `assets/logos/Stocks` (27 SVG files).
 - Font: `assets/fonts/ChakraPetch-Bold.ttf`.
 - App icons: `assets/icons/App-Icon.svg` and `assets/icons/App-Icon-180.png`.
-- Shared host layout: `assets/css/v6-modules.css`.
-- Full-screen dynamic system: `assets/css/full-screen-dynamic.css`.
+- Page-level and outer-container geometry: `assets/css/full-screen-dynamic.css` (single authority).
+- Module presentation and interaction: `assets/css/v6-modules.css`, `cards/rolling-cards.css` and `modules/timeframe-switch/host.css`.
 - Runtime data providers: Gate USDT perpetual REST/WebSocket APIs and the V12 public JSON feed.
 - Browser capabilities: Fetch, WebSocket, IndexedDB, localStorage, postMessage, Page Visibility API, ResizeObserver and animation-frame scheduling.
 
