@@ -1,15 +1,7 @@
-/* Single positioning and sizing authority for the timeframe iframe.
-   Safe-area insets are applied here once; the iframe document fills this box. */
+/* Timeframe iframe presentation and interaction. Parent viewport sizing is owned by full-screen-dynamic.css. */
 #timeframe-frame{
- position:fixed!important;
  z-index:2147483647!important;
- left:max(8px,env(safe-area-inset-left,0px))!important;
- bottom:max(0px,env(safe-area-inset-bottom,0px))!important;
- top:auto!important;
  display:block!important;
- width:clamp(76px,calc(8vw + 4vh),112px)!important;
- height:clamp(172px,44vh,260px)!important;
- max-width:calc(100vw - max(8px,env(safe-area-inset-left,0px)) - 8px)!important;
  margin:0!important;
  padding:0!important;
  border:0!important;
