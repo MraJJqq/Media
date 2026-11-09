@@ -1,10 +1,9 @@
 :root{--tx:#f2f5ff;color-scheme:dark}
-html,body{width:100%;margin:0;height:100%;overflow:hidden;background:transparent!important}
+html,body{background:transparent!important}
 /* 底部约 20% 高度的悬浮条；无背景 */
-#ring{position:fixed;left:0;right:0;bottom:0;height:calc(max(20vh,110px) + env(safe-area-inset-bottom,0px));
+#ring{
   touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;
   cursor:grab;color:var(--tx);font-family:-apple-system,"SF Pro Display","PingFang SC",Roboto,sans-serif}
-#vp{position:absolute;left:0;right:0;top:0;bottom:env(safe-area-inset-bottom,0px)}
 /* 卡片底板：静态，只绘制一次；颜色走变量，涨跌只切换一个 class */
 .c{--c:#00f5a0;--g:rgba(0,245,160,.22);--bd:rgba(0,245,160,.55);
   position:absolute;left:0;top:0;width:172px;height:100px;box-sizing:border-box;border-radius:14px;opacity:0;overflow:hidden;
