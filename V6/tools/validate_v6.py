@@ -158,6 +158,8 @@ if "v6-vegas-ema.js?v=v6-canvas-unified-1" not in kline_view_source:
     fail("VEGAS EMA module cache version is not refreshed for unified canvas sizing")
 if "new ResizeObserver(resize)" in ema_source or "requestAnimationFrame(draw)" in ema_source:
     fail("VEGAS EMA still owns an independent resize observer or animation scheduler")
+if re.search(r"\braf\s*=", ema_source):
+    fail("VEGAS EMA retains stale RAF scheduler state")
 if "setCanvasSize,getVisibleRange" not in ema_source:
     fail("VEGAS EMA shared-canvas sizing API is missing")
 if "overlay.setView(viewport());overlay.renderNow()" not in kline_view_source:
