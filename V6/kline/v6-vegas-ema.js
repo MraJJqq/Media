@@ -12,7 +12,7 @@ export function createVegasEmaOverlay({canvas,view=null}={}){
   return min===Infinity?null:{min,max};
  }
  function draw(){
-  raf=0;if(destroyed)return;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);
+  if(destroyed)return;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);
   const v=currentView;if(!candles.length||!v||!W||!H||!(v.barW>0)||!(v.hi>v.lo)||v.lo<=0)return;
   const{barW,right,lo,hi}=v,rightGap=Number.isFinite(v.rightGap)?v.rightGap:0,xOf=i=>v.W-rightGap-(right-i+.5)*barW,yOf=p=>v.T0+(Math.log(hi)-Math.log(p))/(Math.log(hi)-Math.log(lo))*(v.H-v.T0-v.B),iAt=x=>right+.5-(v.W-rightGap-x)/barW,i0=Math.max(0,Math.floor(iAt(0))),i1=Math.min(candles.length-1,Math.ceil(iAt(v.W)));
   for(const def of EMA_DEFS){const values=emas.get(def.period);if(!values)continue;ctx.beginPath();let started=false;for(let i=i0;i<=i1;i++){const value=values[i];if(!Number.isFinite(value)){started=false;continue}const x=xOf(i),y=yOf(value);if(!started){ctx.moveTo(x,y);started=true}else ctx.lineTo(x,y)}if(started){ctx.strokeStyle=def.color;ctx.lineWidth=def.width;ctx.lineJoin="round";ctx.lineCap="round";ctx.stroke()}}
