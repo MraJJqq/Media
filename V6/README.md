@@ -24,15 +24,14 @@
 - 卡片点选切换当前品种；周期模块将选择同步给 K 线和 Logo 倒计时。
 - 卡片行情来自 Gate futures tickers；V12 信号栏读取 V12 公共信号文件。
 
-
 ## 全屏幕动态系统
 - 全部页面板块统一适配实际视窗尺寸，支持动态视口高度、横竖屏和安全区域。
 - K线画布继续由 ResizeObserver 与 DPR 独立调整；K线数据、手势缩放和视窗状态逻辑不变。
 - 周期切换控件按可用高度适配；横屏使用独立尺寸规则。
+- 周期切换 iframe 只加载自身响应式样式，不再加载整份主页面全屏适配 CSS；主页面仍统一负责 iframe 的位置与尺寸。
 - 27 张卡片根据实际卡片视区调整尺寸，小屏减少同时可见数量，优先保持文字可读；卡片选择、拖动、轮播和报价逻辑不变。
 - Logo、背景和底部信号栏沿用原有视觉资产与动画，只调整可用尺寸和边界。
 - 安全区域由各自所属的页面/模块边界处理，避免同一模块重复叠加底部 inset。
-
 
 ## Performance and recovery
 - IndexedDB is the primary historical cache. If it is temporarily unavailable, V6 switches to an in-memory cache so the active page can continue; it retries IndexedDB access after 15 seconds. In-memory fallback is temporary and does not survive a page reload. When IndexedDB recovers, reads and writes merge the temporary cache back into the persistent record.
