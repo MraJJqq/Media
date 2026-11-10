@@ -1,4 +1,4 @@
-import{createVegasEmaOverlay}from"./v6-vegas-ema.js?v=v6-canvas-unified-1";
+import{createVegasEmaOverlay}from"./v6-vegas-ema.js?v=v6-independent-2";
 import{VIEWPORT_STORAGE_KEY,captureViewportState,normalizeViewportState,removeLegacyViewportState,resolveViewportRight}from"./v6-viewport-state.js?v=v6-independent-2";
 export function createV6KlineView({host,onInteractionChange=()=>{}}){
 if(!host)throw new TypeError("K-line host element is required");
@@ -16,12 +16,12 @@ function setRight(v){
 function saveViewport(){const next=captureViewportState(C,right,barW);if(!next)return;viewportState=next;try{localStorage.setItem(VIEWPORT_STORAGE_KEY,JSON.stringify(next))}catch(_){}}
 function migrateLegacyViewportKey(key){if(viewportKeyInitialized||typeof key!=="string"||!key)return;viewportKeyInitialized=true;try{const legacy=normalizeViewportState(JSON.parse(localStorage.getItem("vegas-v6-viewport:"+key)||"null"));if(legacy){viewportState=legacy;localStorage.setItem(VIEWPORT_STORAGE_KEY,JSON.stringify(legacy));}}catch(_){}}
 function ask(){if(!raf&&!destroyed)raf=requestAnimationFrame(loop)}
-function resize(){if(destroyed)return;if(P.size||pinch)resetInteraction();dpr=Math.min(window.devicePixelRatio||1,2);const r=host.getBoundingClientRect();W=r.width;H=r.height;setRight(right);const pixelWidth=Math.max(1,Math.round(W*dpr)),pixelHeight=Math.max(1,Math.round(H*dpr));if(canvas.width!==pixelWidth)canvas.width=pixelWidth;if(canvas.height!==pixelHeight)canvas.height=pixelHeight;overlay.setCanvasSize(W,H,dpr);ask()}
+function resize(){if(destroyed)return;if(P.size||pinch)resetInteraction();dpr=Math.min(window.devicePixelRatio||1,2);const r=host.getBoundingClientRect();W=r.width;H=r.height;setRight(right);canvas.width=Math.max(1,Math.round(W*dpr));canvas.height=Math.max(1,Math.round(H*dpr));ask()}
 function yOf(p){return T0+(Math.log(hi)-Math.log(p))/(Math.log(hi)-Math.log(lo))*(H-T0-B)}
 function draw(i0,i1){ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);let bw=Math.max(1,Math.round(barW*.7));if(bw>2&&bw%2===0)bw--;const fu=new Path2D(),fd=new Path2D(),su=new Path2D(),sd=new Path2D();for(let i=i0;i<=i1;i++){const c=C[i],up=c.c>=(i?C[i-1].c:c.o),F=up?fu:fd,S=up?su:sd,x=xOf(i),yh=yOf(c.h),yl=yOf(c.l),yo=yOf(c.o),yc=yOf(c.c),top=Math.min(yo,yc),bot=Math.max(yo,yc),wx=Math.round(x-.5);if(c.c>=c.o&&bw>=3&&bot-top>2){F.rect(wx,yh,1,Math.max(0,top-yh));F.rect(wx,bot,1,Math.max(0,yl-bot));S.rect(Math.round(x-bw/2)+.5,Math.round(top)+.5,bw-1,Math.round(bot-top)-1)}else{F.rect(wx,yh,1,Math.max(1,yl-yh));if(barW>=3)F.rect(Math.round(x-bw/2),top,bw,Math.max(1,bot-top))}}ctx.fillStyle="#22b07d";ctx.fill(fu);ctx.fillStyle="#e5484d";ctx.fill(fd);ctx.lineWidth=1;ctx.strokeStyle="#22b07d";ctx.stroke(su);ctx.strokeStyle="#e5484d";ctx.stroke(sd)}
 function viewport(){return Object.freeze({barW,right,lo,hi,W,H,T0,B,rightGap:0})}
 function frame(){
- const n=C.length;if(!W||!H)return;if(!n){ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);overlay.setView(viewport());overlay.renderNow();return;}const i0=Math.max(0,Math.floor(iAt(0))),i1=Math.min(n-1,Math.ceil(iAt(W)));let mn=Infinity,mx=-Infinity;
+ const n=C.length;if(!n||!W)return;const i0=Math.max(0,Math.floor(iAt(0))),i1=Math.min(n-1,Math.ceil(iAt(W)));let mn=Infinity,mx=-Infinity;
  for(let i=i0;i<=i1;i++){if(C[i].l<mn)mn=C[i].l;if(C[i].h>mx)mx=C[i].h}
  if(mn===Infinity){mn=lo;mx=hi}
  const emaRange=overlay.getVisibleRange(i0,i1);
@@ -44,7 +44,7 @@ canvas.addEventListener("wheel",e=>{e.preventDefault();if(e.deltaX===0&&e.deltaY
 canvas.addEventListener("touchmove",e=>e.preventDefault(),{passive:false,signal});canvas.addEventListener("contextmenu",e=>e.preventDefault(),{signal});["gesturestart","gesturechange","gestureend"].forEach(n=>canvas.addEventListener(n,e=>e.preventDefault(),{signal}));
 const observer=new ResizeObserver(resize);observer.observe(host);window.addEventListener("pagehide",()=>{resetInteraction();saveViewport()},{signal});window.addEventListener("pageshow",resetInteraction,{signal});window.addEventListener("blur",resetInteraction,{signal});document.addEventListener("visibilitychange",()=>{if(document.hidden){resetInteraction();saveViewport()}else resetInteraction()},{signal});resize();
 function setCandles(a){C=Array.isArray(a)?a:[];inited=false;vel=0;if(!C.length){ask();return;}if(viewportState){barW=viewportState.barW;const mapped=resolveViewportRight(C,viewportState,W);if(mapped!==null)right=mapped;else setRight(C.length-1+RIGHT_GAP_BARS);}else{setRight(C.length-1+RIGHT_GAP_BARS);saveViewport();}setRight(right);ask();}
-function setVegasEmaCandles(a){overlay.setCandles(a);ask()}
+function setVegasEmaCandles(a){overlay.setCandles(a)}
 function setHistoryStatus(symbol,count,complete,state,error,timeframe="4H"){
  const status=state||(complete?(count>=676?"ready":"exchange-history-exhausted"):"incomplete");
  host.dataset.emaHistoryStatus=status;host.dataset.emaHistorySymbol=symbol;host.dataset.emaHistoryCount=String(count);
