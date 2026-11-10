@@ -154,6 +154,8 @@ kline_view_source = (ROOT / "kline/v6-kline-view.js").read_text(encoding="utf-8"
 ema_source = (ROOT / "kline/v6-vegas-ema.js").read_text(encoding="utf-8")
 if "overlay.setCanvasSize(W,H,dpr)" not in kline_view_source:
     fail("Host resize does not centrally size the VEGAS EMA canvas")
+if "v6-vegas-ema.js?v=v6-canvas-unified-1" not in kline_view_source:
+    fail("VEGAS EMA module cache version is not refreshed for unified canvas sizing")
 if "new ResizeObserver(resize)" in ema_source or "requestAnimationFrame(draw)" in ema_source:
     fail("VEGAS EMA still owns an independent resize observer or animation scheduler")
 if "setCanvasSize,getVisibleRange" not in ema_source:
