@@ -1,4 +1,6 @@
-const DB_NAME="vegas-v6-market-cache",DB_VERSION=1,STORE="candles";
+const DB_NAME="vegas-v6-market-cache",DB_VERSION=2,LEGACY_STORE="candles",STORE="candleRows",META_STORE="seriesMeta";
+const MEMORY_MAX_PER_SERIES=12000,MEMORY_MAX_TOTAL=30000;
+let storageCheckAt=0;
 const INTERVALS=Object.freeze({"1H":"1h","4H":"4h","8H":"8h","D":"1d"});
 const TIMEFRAMES=Object.freeze(["1H","4H","8H","D"]);
 const MS=Object.freeze({"1H":3600000,"4H":14400000,"8H":28800000,"D":86400000});
@@ -6,7 +8,7 @@ const PAGE=2000,API="https://api.gateio.ws/api/v4/futures/usdt",WS_URL="wss://fx
 const keyOf=(contract,tf)=>"gate-usdt:"+contract+":"+tf;
 const normalize=(rows,tf)=>{if(!Array.isArray(rows))throw new Error("Gate returned non-array candlesticks");const step=tf?MS[tf]/1000:0,latestBucket=step?Math.floor(Date.now()/step)*step:Infinity,out=[];for(const r of rows){const x={t:Number(r.t??r[0]),o:Number(r.o??r[5]??r[1]),h:Number(r.h??r[3]??r[2]),l:Number(r.l??r[4]??r[3]),c:Number(r.c??r[2]??r[4])};if(!Number.isSafeInteger(x.t)||x.t<=0||![x.o,x.h,x.l,x.c].every(v=>Number.isFinite(v)&&v>0)||x.h<Math.max(x.o,x.c)||x.l>Math.min(x.o,x.c)||x.h<x.l)throw new Error("Gate returned invalid OHLC candle");if(step&&(x.t%step!==0||x.t>latestBucket))throw new Error("Gate returned misaligned or future candle timestamp");out.push(x)}return merge(out)};
 const merge=(...groups)=>{const m=new Map();for(const g of groups)for(const c of g||[])m.set(c.t,c);return [...m.values()].sort((a,b)=>a.t-b.t)};
-function openDB(){return new Promise((resolve,reject)=>{if(!("indexedDB"in window))return reject(new Error("IndexedDB unavailable; durable K-line cache cannot start"));const q=indexedDB.open(DB_NAME,DB_VERSION);q.onupgradeneeded=()=>{if(!q.result.objectStoreNames.contains(STORE))q.result.createObjectStore(STORE,{keyPath:"id"})};q.onsuccess=()=>{q.result.onversionchange=()=>q.result.close();resolve(q.result)};q.onerror=()=>reject(q.error||new Error("IndexedDB open failed"));q.onblocked=()=>reject(new Error("IndexedDB upgrade blocked"))})}
+function openDB(){return new Promise((resolve,reject)=>{if(!("indexedDB"in window))return reject(new Error("IndexedDB unavailable; durable K-line cache cannot start"));const q=indexedDB.open(DB_NAME,DB_VERSION);q.onupgradeneeded=()=>{const db=q.result;if(!db.objectStoreNames.contains(STORE)){const rows=db.createObjectStore(STORE,{keyPath:"id"});rows.createIndex("series","series",{unique:false})}if(!db.objectStoreNames.contains(META_STORE))db.createObjectStore(META_STORE,{keyPath:"id"});if(!db.objectStoreNames.contains(LEGACY_STORE))db.createObjectStore(LEGACY_STORE,{keyPath:"id"})};q.onsuccess=()=>{q.result.onversionchange=()=>q.result.close();resolve(q.result)};q.onerror=()=>reject(q.error||new Error("IndexedDB open failed"));q.onblocked=()=>reject(new Error("IndexedDB upgrade blocked"))})}
 export function createGateKlineController({frame,instruments=[],onState=()=>{},isHidden=()=>document.hidden}={}){
  let dbp=null,dbRetryAt=0,lastPongAt=0,wsWatchdogTimer=0;
  const memoryCache=new Map(),bySymbol=new Map(instruments.map(x=>[x.symbol,x])),memory=new Map();
@@ -21,25 +23,39 @@ export function createGateKlineController({frame,instruments=[],onState=()=>{},i
  let queueRunning=false,queueRestartRequested=false,paused=false;
  const completed=new Set(),failed=new Map();
  const canWork=()=>!stopped&&!paused&&!isHidden();
- async function read(key){const db=await getDB();if(!db)return memoryCache.get(key)||{candles:[],historyBoundaryReached:false,latestGapStatus:"pending",cacheMode:"memory"};return new Promise((resolve,reject)=>{let tx;try{tx=db.transaction(STORE,"readonly")}catch(e){reject(e);return}const q=tx.objectStore(STORE).get(key);q.onsuccess=()=>{const saved=q.result||{candles:[],historyBoundaryReached:false,latestGapStatus:"pending"},volatile=memoryCache.get(key);resolve(volatile?{...saved,candles:merge(saved.candles,volatile.candles),historyBoundaryReached:saved.historyBoundaryReached===true||volatile.historyBoundaryReached===true,latestGapStatus:volatile.latestGapStatus||saved.latestGapStatus}:saved)};q.onerror=()=>reject(q.error||new Error("IndexedDB read failed"));tx.onerror=()=>reject(tx.error||new Error("IndexedDB read transaction failed"))})}
- async function write(key,rows,done,status="ok",error=null){
-  const db=await getDB();
-  if(!db){const previous=memoryCache.get(key)||{},data=merge(previous.candles,rows),boundary=done===true||previous.historyBoundaryReached===true,gap=status==="latest-verified"?"clear":(previous.latestGapStatus||"pending");memoryCache.set(key,{id:key,source:"Gate USDT perpetual",updatedAt:Date.now(),schemaVersion:2,historyComplete:boundary&&gap==="clear",historyBoundaryReached:boundary,historyBoundaryStatus:boundary?"api-empty-page-confirmed":"not-yet-confirmed",latestGapStatus:gap,requestStatus:status,lastError:error??(status==="failed"?previous.lastError:null),candleCount:data.length,oldestTimestamp:data[0]?.t??null,newestTimestamp:data.at(-1)?.t??null,candles:data,cacheMode:"memory"});return;}
-  await new Promise((resolve,reject)=>{
-   let tx;try{tx=db.transaction(STORE,"readwrite")}catch(e){reject(e);return}
-   const store=tx.objectStore(STORE),q=store.get(key);
-   q.onsuccess=()=>{
-    const previous=q.result||{},volatile=memoryCache.get(key)||{},data=merge(previous.candles,volatile.candles,rows);
-    const boundary=done===true||previous.historyBoundaryReached===true;
-    const gap=status==="latest-verified"?"clear":(previous.latestGapStatus||"pending");
-    const historyComplete=boundary&&gap==="clear";
-    store.put({id:key,source:"Gate USDT perpetual",updatedAt:Date.now(),schemaVersion:2,historyComplete,historyBoundaryReached:boundary,historyBoundaryStatus:boundary?"api-empty-page-confirmed":"not-yet-confirmed",latestGapStatus:gap,requestStatus:status,lastError:error??(status==="failed"?previous.lastError:null),candleCount:data.length,oldestTimestamp:data[0]?.t??null,newestTimestamp:data.at(-1)?.t??null,candles:data});
-   };
-   q.onerror=()=>reject(q.error||new Error("IndexedDB cache merge read failed"));
-   tx.oncomplete=()=>resolve();tx.onerror=tx.onabort=()=>reject(tx.error||new Error("IndexedDB write failed"));
-  });
+ function trimMemoryCache(){
+  let total=0;for(const value of memoryCache.values())total+=value.candles?.length||0;
+  while(memoryCache.size&&(memoryCache.size>8||total>MEMORY_MAX_TOTAL)){let victim=null,oldest=Infinity;for(const [key,value] of memoryCache){if((value.updatedAt||0)<oldest){oldest=value.updatedAt||0;victim=key}}if(victim===null)break;total-=memoryCache.get(victim)?.candles?.length||0;memoryCache.delete(victim)}
  }
- function scheduleWrite(key,rows,done,status="ok",error=null){pendingWrites.set(key,{rows:rows.slice(),done,status,error});if(!writeTimer)writeTimer=setTimeout(()=>{void flushPendingWrites()},750)}
+ function putMemory(key,previous,rows,done,status,error){
+  const all=merge(previous.candles,rows),limited=all.length>MEMORY_MAX_PER_SERIES,data=limited?all.slice(-MEMORY_MAX_PER_SERIES):all,boundary=!limited&&(done===true||previous.historyBoundaryReached===true);
+  memoryCache.set(key,{id:key,source:"Gate USDT perpetual",updatedAt:Date.now(),schemaVersion:3,historyComplete:boundary&&status==="latest-verified",historyBoundaryReached:boundary,historyBoundaryStatus:boundary?"api-empty-page-confirmed":"not-yet-confirmed",latestGapStatus:status==="latest-verified"?"clear":(previous.latestGapStatus||"pending"),requestStatus:limited?"memory-limit":status,lastError:error??previous.lastError??null,candleCount:data.length,oldestTimestamp:data[0]?.t??null,newestTimestamp:data.at(-1)?.t??null,candles:data,cacheMode:"memory",truncated:limited});
+  trimMemoryCache();if(limited)onState({status:"cache-memory-limit",key,retained:data.length,limit:MEMORY_MAX_PER_SERIES});
+ }
+ async function read(key){
+  const db=await getDB();if(!db)return memoryCache.get(key)||{candles:[],historyBoundaryReached:false,latestGapStatus:"pending",cacheMode:"memory"};
+  return new Promise((resolve,reject)=>{let tx;try{tx=db.transaction([LEGACY_STORE,STORE,META_STORE],"readwrite")}catch(e){reject(e);return}
+   const legacyStore=tx.objectStore(LEGACY_STORE),rowsStore=tx.objectStore(STORE),metaStore=tx.objectStore(META_STORE),legacyReq=legacyStore.get(key),rowsReq=rowsStore.index("series").getAll(key),metaReq=metaStore.get(key);
+   let legacy=null,rows=[],meta=null,ready=0,result=null;
+   const finish=()=>{if(++ready!==3)return;const oldRows=legacy?.candles||[];if(legacy){for(const c of oldRows)rowsStore.put({id:key+"|"+c.t,series:key,...c});legacyStore.delete(key);const {candles:discardedLegacyArray,...legacyMeta}=legacy;metaStore.put({...legacyMeta,id:key,schemaVersion:3,candleCount:oldRows.length,cacheMode:"indexeddb"})}
+    const normalized=rows.map(({id,series,...c})=>c),volatile=memoryCache.get(key);result={...(meta||legacy||{historyBoundaryReached:false,latestGapStatus:"pending"}),candles:merge(normalized,oldRows,volatile?.candles),historyBoundaryReached:meta?.historyBoundaryReached===true||legacy?.historyBoundaryReached===true||volatile?.historyBoundaryReached===true,latestGapStatus:volatile?.latestGapStatus||meta?.latestGapStatus||legacy?.latestGapStatus||"pending",cacheMode:"indexeddb"};if(legacy)memoryCache.delete(key)};
+   legacyReq.onsuccess=()=>{legacy=legacyReq.result||null;finish()};rowsReq.onsuccess=()=>{rows=rowsReq.result||[];finish()};metaReq.onsuccess=()=>{meta=metaReq.result||null;finish()};
+   legacyReq.onerror=rowsReq.onerror=metaReq.onerror=()=>{try{tx.abort()}catch(_){}};tx.oncomplete=()=>resolve(result||{candles:[],historyBoundaryReached:false,latestGapStatus:"pending"});tx.onerror=tx.onabort=()=>reject(tx.error||new Error("IndexedDB cache read/migration failed"))
+  })
+ }
+ async function checkStorage(){if(Date.now()-storageCheckAt<300000||!navigator.storage?.estimate)return;storageCheckAt=Date.now();try{const e=await navigator.storage.estimate(),usage=Number(e.usage)||0,quota=Number(e.quota)||0,ratio=quota?usage/quota:0;if(ratio>=.8)onState({status:"cache-storage-pressure",usageBytes:usage,quotaBytes:quota,usageRatio:ratio,level:ratio>=.9?"critical":"warning"})}catch(_){}}
+ async function write(key,rows,done,status="ok",error=null){
+  const db=await getDB();if(!db){putMemory(key,memoryCache.get(key)||{},rows,done,status,error);return}
+  await new Promise((resolve,reject)=>{let tx;try{tx=db.transaction([LEGACY_STORE,STORE,META_STORE],"readwrite")}catch(e){reject(e);return}
+   const legacyStore=tx.objectStore(LEGACY_STORE),rowsStore=tx.objectStore(STORE),metaStore=tx.objectStore(META_STORE),legacyReq=legacyStore.get(key),metaReq=metaStore.get(key);let lr=false,mr=false,failed=false;
+   const fail=e=>{if(failed)return;failed=true;try{tx.abort()}catch(_){}reject(e||new Error("IndexedDB cache write failed"))};
+   const apply=()=>{if(!lr||!mr||failed)return;const previous=metaReq.result||legacyReq.result||{},legacy=legacyReq.result;if(legacy){for(const c of legacy.candles||[])rowsStore.put({id:key+"|"+c.t,series:key,...c});legacyStore.delete(key)}for(const c of rows)rowsStore.put({id:key+"|"+c.t,series:key,...c});
+    const idx=rowsStore.index("series"),cr=idx.count(key),fr=idx.openCursor(IDBKeyRange.only(key),"next"),rr=idx.openCursor(IDBKeyRange.only(key),"prev");let count,first,last,cd=false,fd=false,rd=false;
+    const save=()=>{if(!cd||!fd||!rd)return;const boundary=done===true||previous.historyBoundaryReached===true,gap=status==="latest-verified"?"clear":(previous.latestGapStatus||"pending");metaStore.put({id:key,source:"Gate USDT perpetual",updatedAt:Date.now(),schemaVersion:3,historyComplete:boundary&&gap==="clear",historyBoundaryReached:boundary,historyBoundaryStatus:boundary?"api-empty-page-confirmed":"not-yet-confirmed",latestGapStatus:gap,requestStatus:status,lastError:error??(status==="failed"?previous.lastError:null),candleCount:count,oldestTimestamp:first?.value?.t??null,newestTimestamp:last?.value?.t??null,cacheMode:"indexeddb"})};
+    cr.onsuccess=()=>{count=cr.result;cd=true;save()};fr.onsuccess=()=>{first=fr.result;fd=true;save()};rr.onsuccess=()=>{last=rr.result;rd=true;save()};cr.onerror=fr.onerror=rr.onerror=()=>fail(new Error("IndexedDB cache index update failed"))};
+   legacyReq.onsuccess=()=>{lr=true;apply()};metaReq.onsuccess=()=>{mr=true;apply()};legacyReq.onerror=metaReq.onerror=()=>fail(tx.error);tx.oncomplete=()=>{memoryCache.delete(key);resolve()};tx.onerror=tx.onabort=()=>fail(tx.error||new Error("IndexedDB write transaction failed"))
+  });void checkStorage()
+ } function scheduleWrite(key,rows,done,status="ok",error=null){pendingWrites.set(key,{rows:rows.slice(),done,status,error});if(!writeTimer)writeTimer=setTimeout(()=>{void flushPendingWrites()},750)}
  async function flushPendingWrites(){if(writeTimer){clearTimeout(writeTimer);writeTimer=0}const jobs=[...pendingWrites.entries()];pendingWrites.clear();await Promise.all(jobs.map(async([key,p])=>{try{await write(key,p.rows,p.done,p.status,p.error,true)}catch(error){onState({status:"cache-write-failed",key,error:String(error?.message||error)})}}))}
  function mergeLive(rows,incoming){for(const item of incoming){const last=rows[rows.length-1];if(!last||item.t>last.t){rows.push(item);continue}if(item.t===last.t){rows[rows.length-1]=item;continue}const index=rows.findIndex(row=>row.t===item.t);if(index>=0)rows[index]=item;else{rows.push(item);rows.sort((a,b)=>a.t-b.t)}}return rows}
  async function request(url,tf){let lastError;for(let attempt=0;attempt<5;attempt++){if(!canWork())throw new Error("History request paused");const controller=new AbortController();requestControllers.add(controller);try{const res=await fetch(url,{headers:{Accept:"application/json"},cache:"no-store",signal:controller.signal});if(res.status===429||res.status>=500)throw new Error("Gate HTTP "+res.status);if(!res.ok)throw new Error("Gate HTTP "+res.status);const body=await res.json();if(!Array.isArray(body))throw new Error("Gate returned non-array candlesticks");return normalize(body,tf)}catch(error){lastError=error;if(!canWork()||controller.signal.aborted)throw error;if(attempt===4)break;await new Promise(r=>setTimeout(r,Math.min(8000,1000*2**attempt)))}finally{requestControllers.delete(controller)}}throw lastError||new Error("Gate history request failed")}

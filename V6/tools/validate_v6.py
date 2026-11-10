@@ -119,6 +119,18 @@ if not re.search(r"merged\s*=\s*await\s+repairGaps\(c,tf,merged\)", controller):
 if 'DB_NAME="vegas-v6-market-cache"' not in controller:
     fail("Gate IndexedDB namespace is not V6-isolated")
 
+controller = (ROOT / "kline/gate-kline-controller.js").read_text(encoding="utf-8")
+if 'DB_VERSION=2' not in controller or 'META_STORE="seriesMeta"' not in controller:
+    fail("V6 incremental cache schema version 2 is missing")
+if "MEMORY_MAX_PER_SERIES=12000" not in controller or "MEMORY_MAX_TOTAL=30000" not in controller:
+    fail("V6 volatile cache bounds are missing")
+if 'createIndex("series","series"' not in controller or 'rowsStore.put({id:key+"|"+c.t,series:key,...c})' not in controller:
+    fail("V6 per-candle IndexedDB storage is missing")
+if "navigator.storage?.estimate" not in controller or "cache-storage-pressure" not in controller:
+    fail("V6 browser storage pressure monitoring is missing")
+if "discardedLegacyArray" not in controller:
+    fail("V6 legacy cache migration may retain a duplicate full candle array in metadata")
+
 if errors:
     print("V6 validation FAILED:")
     for error in errors:
