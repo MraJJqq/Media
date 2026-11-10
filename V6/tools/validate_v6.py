@@ -136,13 +136,19 @@ if "discardedLegacyArray" not in controller:
 
 # All static CSS/JS entry resources use one cache-busting release token.
 STATIC_ASSET_VERSION = "v6-static-20261110-1"
+KLINE_SYNC_VERSION = "v6-kline-sync-1"
 static_versions = set()
 for page in html_files:
     source = page.read_text(encoding="utf-8")
     for match in re.finditer(r"""(?:href|src)=["']([^"']+\.(?:css|js))\?v=([^"']+)["']""", source):
         static_versions.add(match.group(2))
-if static_versions != {STATIC_ASSET_VERSION}:
+if static_versions != {STATIC_ASSET_VERSION, KLINE_SYNC_VERSION}:
     fail(f"static CSS/JS cache versions are not unified: {sorted(static_versions)}")
+if f'modules/v6-runtime.js?v={KLINE_SYNC_VERSION}' not in (ROOT / "index.html").read_text(encoding="utf-8"):
+    fail("V6 runtime entry cache version is not refreshed for synchronized K-line rendering")
+runtime_source = (ROOT / "modules/v6-runtime.js").read_text(encoding="utf-8")
+if f'v6-kline-view.js?v={KLINE_SYNC_VERSION}' not in runtime_source:
+    fail("V6 K-line view import cache version is not refreshed")
 
 if errors:
     print("V6 validation FAILED:")
