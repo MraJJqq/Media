@@ -1,4 +1,4 @@
-import { INSTRUMENTS } from "../shared/universe-v6.js?v=v6-independent-2";
+import { INSTRUMENTS } from "../shared/universe-v6.js";
 
 export function createSignalTicker({
   container,

@@ -11,7 +11,8 @@ var SLOP=4;        // 手指移动超过多少像素才算拖动（小于此值�
 /* ================================= */
 
 /* ---- 数据：[代码, 初始价] ；接口见文末 updateQuote / updateQuotes ---- */
-var SYMS=[["AAPL",0],["MSFT",0],["GOOGL",0],["AMZN",0],["NVDA",0],["TSLA",0],["META",0],["INTC",0],["QCOM",0],["AMD",0],["TSM",0],["AVGO",0],["ORCL",0],["ARM",0],["MU",0],["ASML",0],["SNDK",0],["SKHYNIX",0],["MRVL",0],["GLW",0],["HOOD",0],["CBRS",0],["SPCX",0],["BTC",0],["HYPE",0],["XAU",0],["CL",0]];
+var CATALOG=window.V6_INSTRUMENT_CATALOG;if(!Array.isArray(CATALOG)||CATALOG.length!==27)throw new Error("V6 instrument catalog unavailable");
+var SYMS=CATALOG.map(function(item){return [item.symbol,0]});
 var N=SYMS.length,W=172,H=100,TAU=Math.PI*2,step=TAU/N,A=SHOW*step;
 
 /* ---- 状态：全部用定长数组，运行中零分配 ---- */
@@ -27,12 +28,12 @@ var tpl=document.createElement("div");
 tpl.className="c";
 tpl.innerHTML='<div class="fg"><div class="row"><div class="sym"><img class="ico" alt=""><span class="nm"></span></div></div><div class="quote"><div class="price"></div><div class="chg"></div></div></div>';
 var frag=document.createDocumentFragment();
-var logos={AAPL:"apple",MSFT:"microsoft",GOOGL:"google",AMZN:"amazon",NVDA:"nvidia",TSLA:"tesla",META:"meta",INTC:"intel",QCOM:"qualcomm",AMD:"amd",TSM:"tsmc",AVGO:"broadcom",ORCL:"oracle",ARM:"arm",MU:"micron",ASML:"asml",SNDK:"sandisk",SKHYNIX:"sk-hynix",MRVL:"marvell",GLW:"corning",HOOD:"robinhood",CBRS:"cerence",SPCX:"spacex",BTC:"bitcoin",HYPE:"hyperliquid",XAU:"gold",CL:"crude-oil"};
+
 for(var i=0;i<N;i++){
   var e=tpl.cloneNode(true),name=SYMS[i][0],ic=e.querySelector(".ico");
   e.dataset.symbol=name;
-  var logo=logos[name];
-  if(logo){ic.dataset.src=(logo==="bitcoin"||logo==="hyperliquid"||logo==="gold"||logo==="crude-oil"?"./assets/logos/Core/":"./assets/logos/Stocks/")+logo+".svg";ic.alt=name;ic.loading="lazy";ic.decoding="async";}
+  var asset=CATALOG[i],logo=asset.logo;
+  if(logo){ic.dataset.src="./assets/logos/"+asset.logoGroup+"/"+logo+".svg";ic.alt=name;ic.loading="lazy";ic.decoding="async";}
   else{ic.remove();}
   e.querySelector(".nm").textContent=name+"USDT";
   els.push(e);pe.push(e.querySelector(".price"));ce.push(e.querySelector(".chg"));

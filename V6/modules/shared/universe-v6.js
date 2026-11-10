@@ -1,7 +1,9 @@
-import { V6_CONFIG } from "./config.js?v=v6-independent-2";
-const DEFINITIONS=[["AAPL","AAPLUSDT","Apple"],["MSFT","MSFTUSDT","Microsoft"],["GOOGL","GOOGLUSDT","Alphabet"],["AMZN","AMZNUSDT","Amazon"],["NVDA","NVDAUSDT","NVIDIA"],["TSLA","TSLAUSDT","Tesla"],["META","METAUSDT","Meta"],["INTC","INTCUSDT","Intel"],["QCOM","QCOMUSDT","Qualcomm"],["AMD","AMDUSDT","AMD"],["TSM","TSMUSDT","TSMC"],["AVGO","AVGOUSDT","Broadcom"],["ORCL","ORCLUSDT","Oracle"],["ARM","ARMUSDT","Arm"],["MU","MUUSDT","Micron"],["ASML","ASMLUSDT","ASML"],["SNDK","SNDKUSDT","SanDisk"],["SKHYNIX","SKHYUSDT","SK hynix"],["MRVL","MRVLUSDT","Marvell"],["GLW","GLWUSDT","Corning"],["HOOD","HOODUSDT","Robinhood"],["CBRS","CBRSUSDT","Cerence"],["SPCX","SPCXUSDT","SpaceX"],["BTC","BTCUSDT","Bitcoin"],["HYPE","HYPEUSDT","Hyperliquid"],["XAU","XAUUSDT","Gold"],["CL","CLUSDT","Crude Oil"]];
-export const INSTRUMENTS=Object.freeze(DEFINITIONS.map(([symbol,contract,name],index)=>Object.freeze({symbol,contract,name,index,category:index<23?"美股巨头":"核心能源"})));
+import { V6_CONFIG } from "./config.js";
+const DEFINITIONS=globalThis.V6_INSTRUMENT_CATALOG;
+if(!Array.isArray(DEFINITIONS)||DEFINITIONS.length!==27)throw new Error("V6 instrument catalog unavailable");
+export const INSTRUMENTS=Object.freeze(DEFINITIONS.map((item,index)=>Object.freeze({...item,index,category:index<23?"美股巨头":"核心能源"})));
+export const GATE_CONTRACTS=Object.freeze(Object.fromEntries(INSTRUMENTS.map(item=>[item.symbol,item.contract.replace(/USDT$/,"_USDT")])));
 export const INSTRUMENT_BY_CONTRACT=new Map(INSTRUMENTS.map(item=>[item.contract,item]));
 export const INSTRUMENT_BY_SYMBOL=new Map(INSTRUMENTS.map(item=>[item.symbol,item]));
-if(INSTRUMENTS.length!==V6_CONFIG.app.instrumentCount)throw new Error("V4 instrument universe size mismatch");
+if(INSTRUMENTS.length!==V6_CONFIG.app.instrumentCount)throw new Error("V6 instrument universe size mismatch");
 export function createSessionQueue(random=Math.random){const queue=[...INSTRUMENTS];for(let index=queue.length-1;index>0;index--){const swapIndex=Math.floor(random()*(index+1));[queue[index],queue[swapIndex]]=[queue[swapIndex],queue[index]];}return Object.freeze(queue);}

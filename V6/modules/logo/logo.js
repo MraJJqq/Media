@@ -1,6 +1,6 @@
-const LOGOS=Object.freeze({
- AAPL:["apple","Stocks"],MSFT:["microsoft","Stocks"],GOOGL:["google","Stocks"],AMZN:["amazon","Stocks"],NVDA:["nvidia","Stocks"],TSLA:["tesla","Stocks"],META:["meta","Stocks"],INTC:["intel","Stocks"],QCOM:["qualcomm","Stocks"],AMD:["amd","Stocks"],TSM:["tsmc","Stocks"],AVGO:["broadcom","Stocks"],ORCL:["oracle","Stocks"],ARM:["arm","Stocks"],MU:["micron","Stocks"],ASML:["asml","Stocks"],SNDK:["sandisk","Stocks"],SKHYNIX:["sk-hynix","Stocks"],MRVL:["marvell","Stocks"],GLW:["corning","Stocks"],HOOD:["robinhood","Stocks"],CBRS:["cerence","Stocks"],SPCX:["spacex","Stocks"],BTC:["bitcoin","Core"],HYPE:["hyperliquid","Core"],XAU:["gold","Core"],CL:["crude-oil","Core"]
-});
+const CATALOG=globalThis.V6_INSTRUMENT_CATALOG;
+if(!Array.isArray(CATALOG)||CATALOG.length!==27)throw new Error("V6 instrument catalog unavailable");
+const LOGOS=Object.freeze(Object.fromEntries(CATALOG.map(item=>[item.symbol,[item.logo,item.logoGroup]])));
 const ROOT="../../assets/logos/";
 const TIMEFRAME_MS=Object.freeze({"1H":3600000,"4H":14400000,"8H":28800000,"D":86400000});
 let intervalMs=TIMEFRAME_MS["4H"];

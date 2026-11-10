@@ -1,6 +1,8 @@
 # VEGAS V6
 
 ## Runtime
+- The 27-symbol catalog, Gate contract derivation, and logo asset mapping are maintained in one local catalog shared by the card and logo modules.
+- Internal ES-module imports use canonical URLs so one shared module is not instantiated again under a different query string.
 - 页面编排采用统一的模块生命周期、轮播、淡入淡出、交互锁与前后台暂停管理；仅适配 Gate 数据源。
 - Logo、周期选择、滚动卡片、V12 信号栏及共享生命周期模块均为 V6 仓库内的本地文件。
 - K 线数据只使用 Gate USDT 永续合约；不加载其他交易所客户端或行情存储。
