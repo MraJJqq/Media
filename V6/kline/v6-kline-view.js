@@ -1,4 +1,4 @@
-import{createVegasEmaOverlay}from"./v6-vegas-ema.js?v=v6-independent-2";
+import{createVegasEmaOverlay}from"./v6-vegas-ema.js?v=v6-canvas-unified-1";
 import{VIEWPORT_STORAGE_KEY,captureViewportState,normalizeViewportState,removeLegacyViewportState,resolveViewportRight}from"./v6-viewport-state.js?v=v6-independent-2";
 export function createV6KlineView({host,onInteractionChange=()=>{}}){
 if(!host)throw new TypeError("K-line host element is required");
