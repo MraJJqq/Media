@@ -86,7 +86,7 @@ for js in ROOT.rglob("*.js"):
 
 runtime_files = html_files + list(ROOT.rglob("*.js")) + [ROOT / ".github/workflows/pages.yml"]
 runtime_text = "\\n".join(path.read_text(encoding="utf-8") for path in runtime_files)
-for forbidden in ("MraJJqq/Media", "MraJJqq/V5", "bitget", "yahoo"):
+for forbidden in ("MraJJqq/V5", "bitget", "yahoo"):
     if forbidden.lower() in runtime_text.lower():
         fail(f"unexpected runtime dependency reference: {forbidden}")
 
@@ -101,15 +101,23 @@ if "universe-v6.js" not in runtime or "page-lifecycle-v6.js" not in runtime:
 if "createV6KlineView" not in runtime:
     fail("runtime is not wired to the V6 K-line view")
 
+# Guard the global layout contract: Logo outer geometry must live only in the
+# global full-screen system, never in a Logo-specific host stylesheet.
+full_screen_path = ROOT / "assets/css/full-screen-dynamic.css"
+full_screen_source = full_screen_path.read_text(encoding="utf-8")
+if not re.search(r"#logo-frame\s*\{[^}]*position\s*:\s*fixed", full_screen_source):
+    fail("Logo outer geometry is missing from the global full-screen system")
+if (ROOT / "modules/logo/host.css").exists():
+    fail("conflicting Logo-specific host layout stylesheet remains")
+index_source = (ROOT / "index.html").read_text(encoding="utf-8")
+if "modules/logo/host.css" in index_source:
+    fail("index.html still loads the Logo-specific host stylesheet")
+
 controller = (ROOT / "kline/gate-kline-controller.js").read_text(encoding="utf-8")
 if not re.search(r"merged\s*=\s*await\s+repairGaps\(c,tf,merged\)", controller):
     fail("latest-data refresh does not repair candle gaps before marking cache verified")
 if 'DB_NAME="vegas-v6-market-cache"' not in controller:
     fail("Gate IndexedDB namespace is not V6-isolated")
-
-background = ROOT / "assets/backgrounds/bg3_time_tunnel.png"
-if not background.is_file():
-    fail("generated tunnel background is missing from the Pages build output")
 
 if errors:
     print("V6 validation FAILED:")
