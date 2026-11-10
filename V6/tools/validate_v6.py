@@ -128,6 +128,8 @@ if 'createIndex("series","series"' not in controller or 'rowsStore.put({id:key+"
     fail("V6 per-candle IndexedDB storage is missing")
 if "navigator.storage?.estimate" not in controller or "cache-storage-pressure" not in controller:
     fail("V6 browser storage pressure monitoring is missing")
+if "memoryCacheIncomplete" not in controller:
+    fail("V6 fallback cache eviction can incorrectly mark partial history complete")
 if "discardedLegacyArray" not in controller:
     fail("V6 legacy cache migration may retain a duplicate full candle array in metadata")
 
