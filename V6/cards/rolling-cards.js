@@ -19,6 +19,7 @@ var ring=document.getElementById("ring"),vp=document.getElementById("vp");
 var els=[],pe=[],ce=[];
 var price=new Float64Array(N),open=new Float64Array(N),op=new Float64Array(N);
 var dirty=new Uint8Array(N),hid=new Uint8Array(N).fill(1),dn=new Int8Array(N).fill(-1);
+var lastPriceText=new Array(N).fill(null),lastChangeText=new Array(N).fill(null);
 var order=new Uint8Array(N);for(var oi=0;oi<N;oi++)order[oi]=oi;
 
 /* ---- 构建卡片（只做一次）：所有卡片常驻图层，进出视野只改透明度，不再创建/销毁 ---- */
@@ -49,10 +50,11 @@ function fmt(v){
 function flush(i){
   dirty[i]=0;
   var p=price[i],o=open[i];
-  if(!(p>0)){pe[i].textContent="--";ce[i].textContent="--";return}
+  if(!(p>0)){if(lastPriceText[i]!=="--"){pe[i].textContent="--";lastPriceText[i]="--"}if(lastChangeText[i]!=="--"){ce[i].textContent="--";lastChangeText[i]="--"}return}
   var up=!(o>0)||p>=o,pct=o>0?(p-o)/o*100:0;
-  pe[i].textContent=fmt(p);
-  ce[i].textContent=o>0?(up?"▲ +":"▼ ")+Math.abs(pct).toFixed(2)+"%":"--";
+  var priceText=fmt(p),changeText=o>0?(up?"▲ +":"▼ ")+Math.abs(pct).toFixed(2)+"%":"--";
+  if(priceText!==lastPriceText[i]){pe[i].textContent=priceText;lastPriceText[i]=priceText}
+  if(changeText!==lastChangeText[i]){ce[i].textContent=changeText;lastChangeText[i]=changeText}
   var d=up?0:1;
   if(d!==dn[i]){dn[i]=d;els[i].classList.toggle("dn",d===1)}
 }
@@ -61,7 +63,9 @@ for(var j=0;j<N;j++)flush(j);
 /* ---- 布局（尺寸变化时才算） ---- */
 var Wd=0,Hd=0,bs=1,Rx=1,Ry=0,x0=0,y0=0;
 function layout(){
-  Wd=vp.clientWidth;Hd=vp.clientHeight;
+  var nextWidth=vp.clientWidth,nextHeight=vp.clientHeight;
+  if(nextWidth===Wd&&nextHeight===Hd)return;
+  Wd=nextWidth;Hd=nextHeight;
   /* 小屏减少可见卡片数量，优先保证卡片文字可读；卡片原始样式与交互不变。 */
   SHOW=Wd<500?2.2:Wd<900?2.8:3.6;
   A=SHOW*step;
@@ -177,10 +181,12 @@ ring.addEventListener("wheel",function(e){
 
 /* ---- 系统事件：切后台 / 滚出可视区 / 尺寸变化 ---- */
 document.addEventListener("visibilitychange",function(){if(document.hidden)stop();else wake()});
-if("IntersectionObserver" in window)new IntersectionObserver(function(en){vis=en[0].isIntersecting;if(vis)wake()}).observe(ring);
-var lr=0;
+window.addEventListener("pagehide",function(){stop();intersectionObserver?.disconnect();resizeObserver?.disconnect()});
+window.addEventListener("pageshow",function(){if(intersectionObserver)intersectionObserver.observe(ring);if(resizeObserver)resizeObserver.observe(vp);wake()});
+if("IntersectionObserver" in window){intersectionObserver=new IntersectionObserver(function(en){vis=en[0].isIntersecting;if(vis)wake()});intersectionObserver.observe(ring)}
+var lr=0,intersectionObserver=null,resizeObserver=null;
 function relayout(){lr=0;layout();wake()}
-if("ResizeObserver" in window)new ResizeObserver(function(){if(!lr)lr=requestAnimationFrame(relayout)}).observe(vp);
+if("ResizeObserver" in window){resizeObserver=new ResizeObserver(function(){if(!lr)lr=requestAnimationFrame(relayout)});resizeObserver.observe(vp)}
 else addEventListener("resize",function(){if(!lr)lr=requestAnimationFrame(relayout)});
 
 /* ---- 与父页面共用同一份随机轮播顺序 ---- */

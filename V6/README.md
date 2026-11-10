@@ -30,3 +30,12 @@
 - 27 张卡片根据实际卡片视区调整尺寸，小屏减少同时可见数量，优先保持文字可读；卡片选择、拖动、轮播和报价逻辑不变。
 - Logo、背景和底部信号栏沿用原有视觉资产与动画，只调整可用尺寸和边界。
 - 安全区域由各自所属的页面/模块边界处理，避免同一模块重复叠加底部 inset。
+
+
+## Performance and recovery
+- IndexedDB is the primary historical cache. If it is temporarily unavailable, V6 switches to an in-memory cache so the active page can continue; it retries IndexedDB access after 15 seconds. In-memory fallback is temporary and does not survive a page reload. When IndexedDB recovers, reads and writes merge the temporary cache back into the persistent record.
+- Gate historical requests retain bounded exponential retry, and gap repair only requests missing timestamp ranges. Cache-write and cache-open failures are surfaced through runtime diagnostics.
+- Card quote text is only written to the DOM when the displayed value changes; unchanged viewport dimensions do not trigger another card layout pass.
+- Card observers disconnect on pagehide and reattach on pageshow, including back-forward cache restoration.
+- Card quote polling retries transient failures up to three times with bounded backoff. Background suspension, request aborts, and the existing five-minute refresh cadence remain unchanged.
+- Runtime errors and unhandled promise rejections are logged with the V6 prefix for diagnosis.

@@ -8,20 +8,28 @@ const normalize=rows=>(Array.isArray(rows)?rows:[]).map(r=>({t:Number(r.t??r[0])
 const merge=(...groups)=>{const m=new Map();for(const g of groups)for(const c of g||[])m.set(c.t,c);return [...m.values()].sort((a,b)=>a.t-b.t)};
 function openDB(){return new Promise((resolve,reject)=>{if(!("indexedDB"in window))return reject(new Error("IndexedDB unavailable; durable K-line cache cannot start"));const q=indexedDB.open(DB_NAME,DB_VERSION);q.onupgradeneeded=()=>{if(!q.result.objectStoreNames.contains(STORE))q.result.createObjectStore(STORE,{keyPath:"id"})};q.onsuccess=()=>{q.result.onversionchange=()=>q.result.close();resolve(q.result)};q.onerror=()=>reject(q.error||new Error("IndexedDB open failed"));q.onblocked=()=>reject(new Error("IndexedDB upgrade blocked"))})}
 export function createGateKlineController({frame,instruments=[],onState=()=>{},isHidden=()=>document.hidden}={}){
- const dbp=openDB(),bySymbol=new Map(instruments.map(x=>[x.symbol,x])),memory=new Map();
+ let dbp=null,dbRetryAt=0;
+ const memoryCache=new Map(),bySymbol=new Map(instruments.map(x=>[x.symbol,x])),memory=new Map();
+ async function getDB(){
+  if(dbp)return dbp;
+  if(Date.now()<dbRetryAt)return null;
+  dbp=openDB().catch(error=>{dbRetryAt=Date.now()+15000;dbp=null;onState({status:"cache-unavailable",mode:"memory-fallback",retryInMs:15000,error:String(error?.message||error)});return null;});
+  return dbp;
+ }
  let symbol="",contract="",timeframe="4H",candles=[],complete=false,ws=null,retryTimer=0,pingTimer=0,stopped=false,selection=0,contractsPromise=null,wsSubscription=null,writeTimer=0;
  const pendingWrites=new Map(),requestControllers=new Set(),latestJobs=new Map(),latestCheckedAt=new Map();
  let queueRunning=false,queueRestartRequested=false,paused=false;
  const completed=new Set(),failed=new Map();
  const canWork=()=>!stopped&&!paused&&!isHidden();
- async function read(key){const db=await dbp;return new Promise((resolve,reject)=>{let tx;try{tx=db.transaction(STORE,"readonly")}catch(e){reject(e);return}const q=tx.objectStore(STORE).get(key);q.onsuccess=()=>resolve(q.result||{candles:[],historyBoundaryReached:false,latestGapStatus:"pending"});q.onerror=()=>reject(q.error||new Error("IndexedDB read failed"));tx.onerror=()=>reject(tx.error||new Error("IndexedDB read transaction failed"))})}
+ async function read(key){const db=await getDB();if(!db)return memoryCache.get(key)||{candles:[],historyBoundaryReached:false,latestGapStatus:"pending",cacheMode:"memory"};return new Promise((resolve,reject)=>{let tx;try{tx=db.transaction(STORE,"readonly")}catch(e){reject(e);return}const q=tx.objectStore(STORE).get(key);q.onsuccess=()=>{const saved=q.result||{candles:[],historyBoundaryReached:false,latestGapStatus:"pending"},volatile=memoryCache.get(key);resolve(volatile?{...saved,candles:merge(saved.candles,volatile.candles),historyBoundaryReached:saved.historyBoundaryReached===true||volatile.historyBoundaryReached===true,latestGapStatus:volatile.latestGapStatus||saved.latestGapStatus}:saved)};q.onerror=()=>reject(q.error||new Error("IndexedDB read failed"));tx.onerror=()=>reject(tx.error||new Error("IndexedDB read transaction failed"))})}
  async function write(key,rows,done,status="ok",error=null){
-  const db=await dbp;
+  const db=await getDB();
+  if(!db){const previous=memoryCache.get(key)||{},data=merge(previous.candles,rows),boundary=done===true||previous.historyBoundaryReached===true,gap=status==="latest-verified"?"clear":(previous.latestGapStatus||"pending");memoryCache.set(key,{id:key,source:"Gate USDT perpetual",updatedAt:Date.now(),schemaVersion:2,historyComplete:boundary&&gap==="clear",historyBoundaryReached:boundary,historyBoundaryStatus:boundary?"api-empty-page-confirmed":"not-yet-confirmed",latestGapStatus:gap,requestStatus:status,lastError:error??(status==="failed"?previous.lastError:null),candleCount:data.length,oldestTimestamp:data[0]?.t??null,newestTimestamp:data.at(-1)?.t??null,candles:data,cacheMode:"memory"});return;}
   await new Promise((resolve,reject)=>{
    let tx;try{tx=db.transaction(STORE,"readwrite")}catch(e){reject(e);return}
    const store=tx.objectStore(STORE),q=store.get(key);
    q.onsuccess=()=>{
-    const previous=q.result||{},data=merge(previous.candles,rows);
+    const previous=q.result||{},volatile=memoryCache.get(key)||{},data=merge(previous.candles,volatile.candles,rows);
     const boundary=done===true||previous.historyBoundaryReached===true;
     const gap=status==="latest-verified"?"clear":(previous.latestGapStatus||"pending");
     const historyComplete=boundary&&gap==="clear";

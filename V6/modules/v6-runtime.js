@@ -36,7 +36,9 @@ function setInteractionLock(source,active){
  interactionResumeTimer=setTimeout(()=>{interactionResumeTimer=null;if(!destroyed&&!isRuntimeHidden()&&!interactionLocks.size)scheduleSymbolRotation();},0);
 }
 const view=createV6KlineView({host:klineHost,onInteractionChange:setInteractionLock});
-const controller=createGateKlineController({frame:{contentWindow:view},instruments:GATE_INSTRUMENTS,isHidden:isRuntimeHidden,onState:s=>{if(s.status==="request-failed")console.warn("[VEGAS V6 Gate K-line]",s);}});
+const controller=createGateKlineController({frame:{contentWindow:view},instruments:GATE_INSTRUMENTS,isHidden:isRuntimeHidden,onState:s=>{if(s.status==="request-failed"||s.status==="cache-unavailable"||s.status==="cache-write-failed")console.warn("[VEGAS V6 data]",s);}});
+lifecycle.listen(window,"unhandledrejection",event=>console.error("[VEGAS V6 unhandled rejection]",event.reason));
+lifecycle.listen(window,"error",event=>console.error("[VEGAS V6 runtime error]",event.message,event.filename,event.lineno));
 const feed=createV12Feed({isHidden:isRuntimeHidden}),ticker=createSignalTicker();
 function selectSymbol(symbol){const item=INSTRUMENTS.find(x=>x.symbol===symbol),contract=GATE_CONTRACTS[symbol];if(!item||!contract){console.warn("[VEGAS V6] Unknown symbol:",symbol);return false;}void controller.select(symbol,contract,timeframe);return true;}
 function switchTimeframe(next){if(!["1H","4H","8H","D"].includes(next)||next===timeframe)return;timeframe=next;try{localStorage.setItem(STORAGE,next)}catch(_){}sendTimeframeState();sendLogoState();if(controller.state.contract)void controller.select(controller.state.symbol,controller.state.contract,timeframe);}
@@ -60,9 +62,12 @@ async function refreshCardQuotes(){
  if(destroyed||isRuntimeHidden()||quoteBusy||typeof window.updateQuotes!=="function")return;
  quoteBusy=true;const abort=new AbortController();quoteAbort=abort;
  try{
-  const response=await fetch("https://api.gateio.ws/api/v4/futures/usdt/tickers",{cache:"no-store",headers:{Accept:"application/json"},signal:abort.signal});
-  if(!response.ok)throw new Error("Gate futures tickers HTTP "+response.status);
-  const rows=await response.json();if(!Array.isArray(rows))throw new Error("Gate futures tickers response invalid");
+  let rows=null,lastError=null;
+  for(let attempt=0;attempt<3;attempt++){
+   try{const response=await fetch("https://api.gateio.ws/api/v4/futures/usdt/tickers",{cache:"no-store",headers:{Accept:"application/json"},signal:abort.signal});if(!response.ok)throw new Error("Gate futures tickers HTTP "+response.status);const body=await response.json();if(!Array.isArray(body))throw new Error("Gate futures tickers response invalid");rows=body;break;}
+   catch(error){lastError=error;if(abort.signal.aborted||destroyed||isRuntimeHidden()||attempt===2)throw error;await new Promise(resolve=>setTimeout(resolve,700*Math.pow(2,attempt)));}
+  }
+  if(!rows)throw lastError||new Error("Gate futures tickers unavailable");
   if(destroyed||isRuntimeHidden())return;
   const byContract=new Map(rows.map(row=>[String(row.contract||""),row])),updates=[];
   for(const item of INSTRUMENTS){
