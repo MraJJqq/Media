@@ -10,6 +10,10 @@ body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC"
 #logo-symbol{min-width:0;font-size:clamp(17px,5.6vw,22px);white-space:nowrap}
 #logo-countdown{display:block;min-height:clamp(18px,5.9vw,23px);padding-right:1px;color:rgba(169,234,255,.72);font:700 clamp(15px,5.6vw,22px)/1.05 "Chakra Petch",sans-serif;letter-spacing:.04em;font-variant-numeric:tabular-nums;white-space:nowrap}
 
+@media (orientation:landscape){
+  #logo-brand{padding-right:max(clamp(5px,1.2vw,9px),env(safe-area-inset-right,0px))}
+}
+
 @media (orientation:landscape) and (max-height:500px){
   #logo-brand{gap:1px;padding-right:clamp(5px,1.2vw,9px)}
   #logo-line{gap:clamp(4px,1vw,7px);min-height:0;font-size:clamp(30px,8vh,42px)}
