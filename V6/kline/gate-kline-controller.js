@@ -15,13 +15,13 @@ export function createGateKlineController({frame,instruments=[],onState=()=>{},i
  const completed=new Set(),failed=new Map();
  const canWork=()=>!stopped&&!paused&&!isHidden();
  async function read(key){const db=await dbp;return new Promise((resolve,reject)=>{let tx;try{tx=db.transaction(STORE,"readonly")}catch(e){reject(e);return}const q=tx.objectStore(STORE).get(key);q.onsuccess=()=>resolve(q.result||{candles:[],historyBoundaryReached:false,latestGapStatus:"pending"});q.onerror=()=>reject(q.error||new Error("IndexedDB read failed"));tx.onerror=()=>reject(tx.error||new Error("IndexedDB read transaction failed"))})}
- async function write(key,rows,done,status="ok",error=null,preferIncoming=false){
+ async function write(key,rows,done,status="ok",error=null){
   const db=await dbp;
   await new Promise((resolve,reject)=>{
    let tx;try{tx=db.transaction(STORE,"readwrite")}catch(e){reject(e);return}
    const store=tx.objectStore(STORE),q=store.get(key);
    q.onsuccess=()=>{
-    const previous=q.result||{},data=preferIncoming?merge(previous.candles,rows):merge(rows,previous.candles);
+    const previous=q.result||{},data=merge(previous.candles,rows);
     const boundary=done===true||previous.historyBoundaryReached===true;
     const gap=status==="latest-verified"?"clear":(previous.latestGapStatus||"pending");
     const historyComplete=boundary&&gap==="clear";
@@ -62,7 +62,7 @@ export function createGateKlineController({frame,instruments=[],onState=()=>{},i
  function setSubscription(){if(!canWork()||!contract||!ws||ws.readyState!==WebSocket.OPEN)return;const next={contract,timeframe};if(wsSubscription&&wsSubscription.contract===next.contract&&wsSubscription.timeframe===next.timeframe)return;if(wsSubscription)sendSubscription("unsubscribe",wsSubscription);sendSubscription("subscribe",next);wsSubscription=next}
  function closeWS(){if(retryTimer)clearTimeout(retryTimer);if(pingTimer)clearInterval(pingTimer);retryTimer=pingTimer=0;const old=ws;if(old){sendSubscription("unsubscribe",wsSubscription);old.onclose=null;try{old.close()}catch(_){}}ws=null;wsSubscription=null}
  function current(token=selection){return !stopped&&token===selection}
- function subscribe(){if(!canWork()||!contract)return;if(!ws){try{const socket=new WebSocket(WS_URL);ws=socket;socket.onopen=()=>{if(ws!==socket||!canWork())return;pingTimer=setInterval(()=>{if(ws===socket&&socket.readyState===WebSocket.OPEN)socket.send(JSON.stringify({time:Math.floor(Date.now()/1000),channel:"futures.ping"}))},20000);wsSubscription=null;setSubscription()};socket.onmessage=e=>{if(ws!==socket||!canWork())return;let message;try{message=JSON.parse(e.data)}catch(_){return}if(message.channel!=="futures.candlesticks"||message.event!=="update"||!Array.isArray(message.result))return;const first=message.result[0],rawContract=first?.n||first?.contract,rawInterval=first?.i||first?.interval;if(rawContract!==contract||rawInterval!==INTERVALS[timeframe])return;const incoming=normalize(message.result);if(!incoming.length)return;const token=selection,c=contract,tf=timeframe;candles=mergeLive(candles,incoming);scheduleWrite(keyOf(c,tf),candles,complete);render(candles,token,tf)};socket.onclose=()=>{if(ws===socket){ws=null;wsSubscription=null;if(pingTimer)clearInterval(pingTimer);pingTimer=0;if(canWork())retryTimer=setTimeout(subscribe,3000)}};socket.onerror=()=>{try{socket.close()}catch(_){}}}catch(_){retryTimer=setTimeout(subscribe,5000);return}}setSubscription()}
+ function subscribe(){if(!canWork()||!contract)return;if(!ws){try{const socket=new WebSocket(WS_URL);ws=socket;socket.onopen=()=>{if(ws!==socket||!canWork())return;pingTimer=setInterval(()=>{if(ws===socket&&socket.readyState===WebSocket.OPEN)socket.send(JSON.stringify({time:Math.floor(Date.now()/1000),channel:"futures.ping"}))},20000);wsSubscription=null;setSubscription()};socket.onmessage=e=>{if(ws!==socket||!canWork())return;let message;try{message=JSON.parse(e.data)}catch(_){return}if(message.channel!=="futures.candlesticks"||message.event!=="update"||!Array.isArray(message.result))return;const first=message.result[0],identity=String(first?.n||""),separator=identity.indexOf("_");const rawInterval=separator>0?identity.slice(0,separator):first?.i||first?.interval;const rawContract=separator>0?identity.slice(separator+1):first?.contract;if(rawContract!==contract||rawInterval!==INTERVALS[timeframe])return;const incoming=normalize(message.result);if(!incoming.length)return;const token=selection,c=contract,tf=timeframe;candles=mergeLive(candles,incoming);scheduleWrite(keyOf(c,tf),candles,complete);render(candles,token,tf)};socket.onclose=()=>{if(ws===socket){ws=null;wsSubscription=null;if(pingTimer)clearInterval(pingTimer);pingTimer=0;if(canWork())retryTimer=setTimeout(subscribe,3000)}};socket.onerror=()=>{try{socket.close()}catch(_){}}}catch(_){retryTimer=setTimeout(subscribe,5000);return}}setSubscription()}
  async function backfillPeriod(c,tf){
   const key=keyOf(c,tf),cached=await read(key);
   if(!canWork())return;
@@ -136,7 +136,7 @@ export function createGateKlineController({frame,instruments=[],onState=()=>{},i
    let merged=merge(base,freshRows);
    merged=await repairGaps(c,tf,merged);
    if(!canWork())return false;
-   await write(key,merged,cached.historyBoundaryReached===true,"latest-verified",null,true);
+   await write(key,merged,cached.historyBoundaryReached===true,"latest-verified");
    latestCheckedAt.set(key,Date.now());
    if(isActive(c,tf)&&current(token)){
     const saved=await read(key);candles=merge(saved.candles);complete=saved.historyComplete===true;render(candles,token,tf);
