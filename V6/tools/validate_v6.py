@@ -133,6 +133,17 @@ if "memoryCacheIncomplete" not in controller:
 if "discardedLegacyArray" not in controller:
     fail("V6 legacy cache migration may retain a duplicate full candle array in metadata")
 
+
+# All static CSS/JS entry resources use one cache-busting release token.
+STATIC_ASSET_VERSION = "v6-static-20261110-1"
+static_versions = set()
+for page in html_files:
+    source = page.read_text(encoding="utf-8")
+    for match in re.finditer(r"""(?:href|src)=["']([^"']+\.(?:css|js))\?v=([^"']+)["']""", source):
+        static_versions.add(match.group(2))
+if static_versions != {STATIC_ASSET_VERSION}:
+    fail(f"static CSS/JS cache versions are not unified: {sorted(static_versions)}")
+
 if errors:
     print("V6 validation FAILED:")
     for error in errors:
