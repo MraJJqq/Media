@@ -114,14 +114,21 @@ if "modules/logo/host.css" in index_source:
     fail("index.html still loads the Logo-specific host stylesheet")
 
 controller = (ROOT / "kline/gate-kline-controller.js").read_text(encoding="utf-8")
-if not re.search(r"merged\s*=\s*await\s+repairGaps\(c,tf,merged\)", controller):
-    fail("latest-data refresh does not repair candle gaps before marking cache verified")
+latest_write = controller.find('await write(key,merged,cached.historyBoundaryReached===true,"latest-data-updated")')
+latest_ema = controller.find("await updateLatestEma(key,merged,await getDB())")
+gap_repair = controller.find("const repaired=await repairGaps(c,tf,merged)")
+if min(latest_write, latest_ema, gap_repair) < 0 or not (latest_write < latest_ema < gap_repair):
+    fail("latest candles and EMA must be persisted before independent historical gap repair")
+if "latest-verified" not in controller:
+    fail("successful gap repair does not mark the series verified")
 if 'DB_NAME="vegas-v6-market-cache"' not in controller:
     fail("Gate IndexedDB namespace is not V6-isolated")
 
 controller = (ROOT / "kline/gate-kline-controller.js").read_text(encoding="utf-8")
-if 'DB_VERSION=2' not in controller or 'META_STORE="seriesMeta"' not in controller:
-    fail("V6 incremental cache schema version 2 is missing")
+if 'DB_VERSION=3' not in controller or 'META_STORE="seriesMeta"' not in controller or 'EMA_STORE="emaRows"' not in controller:
+    fail("V6 persistent EMA cache schema version 3 is missing")
+if "ensureEmaSeries" not in controller or "updateLatestEma" not in controller:
+    fail("V6 full-history and incremental EMA cache handling is missing")
 if "MEMORY_MAX_PER_SERIES=12000" not in controller or "MEMORY_MAX_TOTAL=30000" not in controller:
     fail("V6 volatile cache bounds are missing")
 if 'createIndex("series","series"' not in controller or 'rowsStore.put({id:key+"|"+c.t,series:key,...c})' not in controller:

@@ -1,4 +1,4 @@
-const DB_NAME="vegas-v6-market-cache",DB_VERSION=2,LEGACY_STORE="candles",STORE="candleRows",META_STORE="seriesMeta";
+const DB_NAME="vegas-v6-market-cache",DB_VERSION=3,LEGACY_STORE="candles",STORE="candleRows",META_STORE="seriesMeta",EMA_STORE="emaRows",EMA_VERSION=1;
 const MEMORY_MAX_PER_SERIES=12000,MEMORY_MAX_TOTAL=30000;
 let storageCheckAt=0;
 const INTERVALS=Object.freeze({"1H":"1h","4H":"4h","8H":"8h","D":"1d"});
@@ -6,9 +6,67 @@ const TIMEFRAMES=Object.freeze(["1H","4H","8H","D"]);
 const MS=Object.freeze({"1H":3600000,"4H":14400000,"8H":28800000,"D":86400000});
 const PAGE=2000,API="https://api.gateio.ws/api/v4/futures/usdt",WS_URL="wss://fx-ws.gateio.ws/v4/ws/usdt";
 const keyOf=(contract,tf)=>"gate-usdt:"+contract+":"+tf;
-const normalize=(rows,tf)=>{if(!Array.isArray(rows))throw new Error("Gate returned non-array candlesticks");const step=tf?MS[tf]/1000:0,latestBucket=step?Math.floor(Date.now()/step)*step:Infinity,out=[];for(const r of rows){const x={t:Number(r.t??r[0]),o:Number(r.o??r[5]??r[1]),h:Number(r.h??r[3]??r[2]),l:Number(r.l??r[4]??r[3]),c:Number(r.c??r[2]??r[4])};if(!Number.isSafeInteger(x.t)||x.t<=0||![x.o,x.h,x.l,x.c].every(v=>Number.isFinite(v)&&v>0)||x.h<Math.max(x.o,x.c)||x.l>Math.min(x.o,x.c)||x.h<x.l)throw new Error("Gate returned invalid OHLC candle");if(step&&(x.t%step!==0||x.t>latestBucket))throw new Error("Gate returned misaligned or future candle timestamp");out.push(x)}return merge(out)};
+const normalize=rows=>(Array.isArray(rows)?rows:[]).map(r=>({t:Number(r.t??r[0]),o:Number(r.o??r[5]??r[1]),h:Number(r.h??r[3]??r[2]),l:Number(r.l??r[4]??r[3]),c:Number(r.c??r[2]??r[4])})).filter(x=>Number.isFinite(x.t)&&x.t>0&&[x.o,x.h,x.l,x.c].every(v=>Number.isFinite(v)&&v>0)&&x.h>=Math.max(x.o,x.c)&&x.l<=Math.min(x.o,x.c)&&x.h>=x.l);
 const merge=(...groups)=>{const m=new Map();for(const g of groups)for(const c of g||[])m.set(c.t,c);return [...m.values()].sort((a,b)=>a.t-b.t)};
-function openDB(){return new Promise((resolve,reject)=>{if(!("indexedDB"in window))return reject(new Error("IndexedDB unavailable; durable K-line cache cannot start"));const q=indexedDB.open(DB_NAME,DB_VERSION);q.onupgradeneeded=()=>{const db=q.result;if(!db.objectStoreNames.contains(STORE)){const rows=db.createObjectStore(STORE,{keyPath:"id"});rows.createIndex("series","series",{unique:false})}if(!db.objectStoreNames.contains(META_STORE))db.createObjectStore(META_STORE,{keyPath:"id"});if(!db.objectStoreNames.contains(LEGACY_STORE))db.createObjectStore(LEGACY_STORE,{keyPath:"id"})};q.onsuccess=()=>{q.result.onversionchange=()=>q.result.close();resolve(q.result)};q.onerror=()=>reject(q.error||new Error("IndexedDB open failed"));q.onblocked=()=>reject(new Error("IndexedDB upgrade blocked"))})}
+function openDB(){return new Promise((resolve,reject)=>{if(!("indexedDB"in window))return reject(new Error("IndexedDB unavailable; durable K-line cache cannot start"));const q=indexedDB.open(DB_NAME,DB_VERSION);q.onupgradeneeded=()=>{const db=q.result;if(!db.objectStoreNames.contains(STORE)){const rows=db.createObjectStore(STORE,{keyPath:"id"});rows.createIndex("series","series",{unique:false})}if(!db.objectStoreNames.contains(META_STORE))db.createObjectStore(META_STORE,{keyPath:"id"});if(!db.objectStoreNames.contains(EMA_STORE)){const ema=db.createObjectStore(EMA_STORE,{keyPath:"id"});ema.createIndex("series","series",{unique:false})}if(!db.objectStoreNames.contains(LEGACY_STORE))db.createObjectStore(LEGACY_STORE,{keyPath:"id"})};q.onsuccess=()=>{q.result.onversionchange=()=>q.result.close();resolve(q.result)};q.onerror=()=>reject(q.error||new Error("IndexedDB open failed"));q.onblocked=()=>reject(new Error("IndexedDB upgrade blocked"))})}
+function calculateEmaRows(rows){
+ const periods=[12,36,43,144,169,576,676],values=new Map();
+ for(const period of periods){
+  const out=new Float64Array(rows.length);out.fill(NaN);
+  if(rows.length>=period){let sum=0;for(let i=0;i<period;i++)sum+=rows[i].c;let value=sum/period;out[period-1]=value;const alpha=2/(period+1);for(let i=period;i<rows.length;i++){value=rows[i].c*alpha+value*(1-alpha);out[i]=value}}
+  values.set(period,out);
+ }
+ return values;
+}
+async function ensureEmaSeries(key,rows,db){
+ if(!Array.isArray(rows)||!rows.length||!db)return false;
+ return new Promise((resolve,reject)=>{
+  let tx;try{tx=db.transaction([EMA_STORE,META_STORE],"readwrite")}catch(error){reject(error);return}
+  const store=tx.objectStore(EMA_STORE),metaStore=tx.objectStore(META_STORE),metaReq=metaStore.get("ema|"+key),countReq=store.index("series").count(key);
+  let meta=null,count=null,ready=0,finished=false;
+  const fail=error=>{if(finished)return;finished=true;try{tx.abort()}catch(_){}reject(error||new Error("EMA cache transaction failed"))};
+  const save=()=>{
+   if(ready!==2||finished)return;
+   if(meta?.version===EMA_VERSION&&meta.candleCount===rows.length&&meta.newestTimestamp===rows[rows.length-1].t&&meta.newestClose===rows[rows.length-1].c&&count>=rows.length){finished=true;resolve(true);return}
+   const values=calculateEmaRows(rows);
+   for(let i=0;i<rows.length;i++){const record={id:key+"|"+rows[i].t,series:key,t:rows[i].t};for(const period of [12,36,43,144,169,576,676]){const value=values.get(period)[i];record["e"+period]=Number.isFinite(value)?value:null}store.put(record)}
+   metaStore.put({id:"ema|"+key,version:EMA_VERSION,candleCount:rows.length,oldestTimestamp:rows[0].t,newestTimestamp:rows[rows.length-1].t,newestClose:rows[rows.length-1].c,periods:[12,36,43,144,169,576,676],updatedAt:Date.now()});
+  };
+  metaReq.onsuccess=()=>{meta=metaReq.result||null;ready++;save()};countReq.onsuccess=()=>{count=countReq.result;ready++;save()};
+  metaReq.onerror=countReq.onerror=()=>fail(tx.error);tx.oncomplete=()=>{if(!finished){finished=true;resolve(true)}};tx.onerror=tx.onabort=()=>fail(tx.error);
+ });
+}
+async function updateLatestEma(key,rows,db){
+ if(!Array.isArray(rows)||!rows.length||!db)return false;
+ return new Promise((resolve,reject)=>{
+  let tx;try{tx=db.transaction([EMA_STORE,META_STORE],"readwrite")}catch(error){reject(error);return}
+  const store=tx.objectStore(EMA_STORE),metaStore=tx.objectStore(META_STORE),metaReq=metaStore.get("ema|"+key);
+  let meta=null,ready=false,finished=false,needsFull=false;
+  const fail=error=>{if(finished)return;finished=true;try{tx.abort()}catch(_){}reject(error||new Error("EMA latest cache transaction failed"))};
+  const full=()=>{needsFull=true;try{tx.abort()}catch(_){}};
+  metaReq.onsuccess=()=>{
+   meta=metaReq.result||null;ready=true;
+   if(!meta||meta.version!==EMA_VERSION||!meta.candleCount||rows.length<meta.candleCount||rows.length>meta.candleCount+1){full();return}
+   const last=rows[rows.length-1],same=meta.newestTimestamp===last.t;
+   if(same&&meta.newestClose===last.c){finished=true;resolve(true);return}
+   const previousTime=rows[rows.length-2]?.t,previousReq=previousTime?store.get(key+"|"+previousTime):null;
+   const apply=record=>{
+    const output={id:key+"|"+last.t,series:key,t:last.t};
+    for(const period of [12,36,43,144,169,576,676]){
+     let value=null;
+     if(rows.length>=period){if(rows.length===period){let sum=0;for(let i=0;i<period;i++)sum+=rows[i].c;value=sum/period}else{const prior=Number(record?.["e"+period]);if(Number.isFinite(prior)){const alpha=2/(period+1);value=last.c*alpha+prior*(1-alpha)}}}
+     output["e"+period]=Number.isFinite(value)?value:null;
+    }
+    store.put(output);metaStore.put({...meta,id:"ema|"+key,candleCount:rows.length,newestTimestamp:last.t,newestClose:last.c,updatedAt:Date.now()});
+   };
+   if(previousReq){previousReq.onsuccess=()=>apply(previousReq.result);previousReq.onerror=()=>fail(tx.error)}else apply(null);
+  };
+  metaReq.onerror=()=>fail(tx.error);
+  tx.oncomplete=()=>{if(!finished){finished=true;resolve(true)}};
+  tx.onabort=()=>{if(needsFull&&!finished){finished=true;void ensureEmaSeries(key,rows,db).then(resolve,reject)}else if(!finished)fail(tx.error)};
+  tx.onerror=()=>{if(!needsFull)fail(tx.error)};
+ });
+}
 export function createGateKlineController({frame,instruments=[],onState=()=>{},isHidden=()=>document.hidden}={}){
  let dbp=null,dbRetryAt=0,lastPongAt=0,wsWatchdogTimer=0;
  const memoryCache=new Map(),memoryCacheIncomplete=new Set(),bySymbol=new Map(instruments.map(x=>[x.symbol,x])),memory=new Map();
@@ -56,12 +114,12 @@ export function createGateKlineController({frame,instruments=[],onState=()=>{},i
    legacyReq.onsuccess=()=>{lr=true;apply()};metaReq.onsuccess=()=>{mr=true;apply()};legacyReq.onerror=metaReq.onerror=()=>fail(tx.error);tx.oncomplete=()=>{memoryCache.delete(key);memoryCacheIncomplete.delete(key);resolve()};tx.onerror=tx.onabort=()=>fail(tx.error||new Error("IndexedDB write transaction failed"))
   });void checkStorage()
  } function scheduleWrite(key,rows,done,status="ok",error=null){pendingWrites.set(key,{rows:rows.slice(),done,status,error});if(!writeTimer)writeTimer=setTimeout(()=>{void flushPendingWrites()},750)}
- async function flushPendingWrites(){if(writeTimer){clearTimeout(writeTimer);writeTimer=0}const jobs=[...pendingWrites.entries()];pendingWrites.clear();await Promise.all(jobs.map(async([key,p])=>{try{await write(key,p.rows,p.done,p.status,p.error,true)}catch(error){onState({status:"cache-write-failed",key,error:String(error?.message||error)})}}))}
+ async function flushPendingWrites(){if(writeTimer){clearTimeout(writeTimer);writeTimer=0}const jobs=[...pendingWrites.entries()];pendingWrites.clear();await Promise.all(jobs.map(async([key,p])=>{try{await write(key,p.rows,p.done,p.status,p.error,true);const snapshot=await read(key);await updateLatestEma(key,snapshot.candles,await getDB())}catch(error){onState({status:"cache-write-failed",key,error:String(error?.message||error)})}}))}
  function mergeLive(rows,incoming){for(const item of incoming){const last=rows[rows.length-1];if(!last||item.t>last.t){rows.push(item);continue}if(item.t===last.t){rows[rows.length-1]=item;continue}const index=rows.findIndex(row=>row.t===item.t);if(index>=0)rows[index]=item;else{rows.push(item);rows.sort((a,b)=>a.t-b.t)}}return rows}
  async function request(url,tf){let lastError;for(let attempt=0;attempt<5;attempt++){if(!canWork())throw new Error("History request paused");const controller=new AbortController();requestControllers.add(controller);try{const res=await fetch(url,{headers:{Accept:"application/json"},cache:"no-store",signal:controller.signal});if(res.status===429||res.status>=500)throw new Error("Gate HTTP "+res.status);if(!res.ok)throw new Error("Gate HTTP "+res.status);const body=await res.json();if(!Array.isArray(body))throw new Error("Gate returned non-array candlesticks");return normalize(body,tf)}catch(error){lastError=error;if(!canWork()||controller.signal.aborted)throw error;if(attempt===4)break;await new Promise(r=>setTimeout(r,Math.min(8000,1000*2**attempt)))}finally{requestControllers.delete(controller)}}throw lastError||new Error("Gate history request failed")}
  async function getContracts(){if(!contractsPromise)contractsPromise=fetch(API+"/contracts",{headers:{Accept:"application/json"},cache:"no-store"}).then(async r=>{if(!r.ok)throw new Error("Gate contract list HTTP "+r.status);const rows=await r.json();if(!Array.isArray(rows))throw new Error("Gate contract list invalid");return new Map(rows.map(x=>[x.name,x]))}).catch(e=>{contractsPromise=null;throw e});return contractsPromise}
  async function assertContract(c){const all=await getContracts();if(!all.has(c))throw new Error("Gate USDT perpetual contract not found: "+c);return all.get(c)}
- async function latest(c,n,tf){const u=API+"/candlesticks?contract="+encodeURIComponent(c)+"&interval="+INTERVALS[tf]+"&limit="+n,rows=await request(u,tf);if(!rows.length)throw new Error("Gate returned no latest candles for "+c+" "+tf);const step=MS[tf]/1000,expected=Math.floor(Date.now()/step)*step,newest=rows[rows.length-1].t;if(newest<expected-step)throw new Error("Gate latest candles are stale for "+c+" "+tf);return rows}
+ async function latest(c,n,tf){const u=API+"/candlesticks?contract="+encodeURIComponent(c)+"&interval="+INTERVALS[tf]+"&limit="+n;return merge(await request(u,tf))}
  async function older(c,tf,oldest){const step=MS[tf]/1000,from=Math.max(0,oldest-PAGE*step),to=Math.max(0,oldest-1);if(to<=from)return [];const u=API+"/candlesticks?contract="+encodeURIComponent(c)+"&interval="+INTERVALS[tf]+"&from="+from+"&to="+to;return merge(await request(u,tf))}
  async function range(c,tf,from,to){const step=MS[tf]/1000;let cursor=Math.max(0,from),rows=[];while(cursor<=to&&canWork()){const end=Math.min(to,cursor+(PAGE-1)*step),u=API+"/candlesticks?contract="+encodeURIComponent(c)+"&interval="+INTERVALS[tf]+"&from="+cursor+"&to="+end,part=await request(u,tf);if(!canWork())break;if(!part.length)throw new Error("Gate history gap could not be filled");rows=merge(rows,part);const next=part[part.length-1].t+step;if(next<=cursor)throw new Error("Gate gap repair pagination stalled");cursor=next}return rows}
  function isActive(c,tf){return !stopped&&c===contract&&tf===timeframe}
@@ -90,7 +148,7 @@ export function createGateKlineController({frame,instruments=[],onState=()=>{},i
  async function backfillPeriod(c,tf){
   const key=keyOf(c,tf),cached=await read(key);
   if(!canWork())return;
-  if(cached.historyBoundaryReached===true&&cached.latestGapStatus==="clear"){completed.add(key);failed.delete(key);return}
+  if(cached.historyBoundaryReached===true&&cached.latestGapStatus==="clear"){await ensureEmaSeries(key,cached.candles,await getDB());completed.add(key);failed.delete(key);return}
   let rows=merge(cached.candles),done=cached.historyBoundaryReached===true;
   if(isActive(c,tf)&&!rows.length)return;
   const fresh=isActive(c,tf)?[]:await latest(c,rows.length?3:PAGE,tf);
@@ -104,7 +162,7 @@ export function createGateKlineController({frame,instruments=[],onState=()=>{},i
   if(rows.length!==before)done=false;
   await write(key,rows,done,fresh.length?"latest-verified":"history-backfill");
   if(isActive(c,tf)){candles=rows;complete=done;render(rows,selection,tf)}
-  if(done){completed.add(key);failed.delete(key);return}
+  if(done){await ensureEmaSeries(key,rows,await getDB());completed.add(key);failed.delete(key);return}
   while(canWork()&&rows.length){
    const page=await older(c,tf,rows[0].t);
    if(!canWork()){await write(key,rows,false,"paused");return}
@@ -117,6 +175,7 @@ export function createGateKlineController({frame,instruments=[],onState=()=>{},i
    if(isActive(c,tf)){candles=rows;complete=false;render(rows,selection,tf)}
    // A short page is not proof of the oldest history boundary. Probe the next earlier window; only an empty successful page confirms the boundary.
   }
+  await ensureEmaSeries(key,rows,await getDB());
   if(done){completed.add(key);failed.delete(key)}
   if(isActive(c,tf)){candles=rows;complete=done;render(rows,selection,tf);onState({symbol,contract:c,timeframe:tf,count:rows.length,historyComplete:done,status:done?"history-boundary-reached":"paused"})}
  }
@@ -136,7 +195,7 @@ export function createGateKlineController({frame,instruments=[],onState=()=>{},i
      catch(error){
       if(!canWork())break;
       const message=String(error?.message||error);failed.set(key,message);
-      try{const snapshot=await read(key);await write(key,snapshot.candles,false,"failed",message)}catch(_){}
+      try{const snapshot=await read(key);await write(key,snapshot.candles,false,"failed",message);await ensureEmaSeries(key,snapshot.candles,await getDB())}catch(_){}
       if(isActive(c,tf))onState({symbol:item.symbol,contract:c,timeframe:tf,status:"request-failed",error:message});
      }
      if(canWork())await new Promise(resolve=>setTimeout(resolve,60));
@@ -155,16 +214,30 @@ export function createGateKlineController({frame,instruments=[],onState=()=>{},i
   if(latestJobs.has(key))return latestJobs.get(key);
   const job=(async()=>{
    const cached=await read(key);if(!canWork())return false;
-   const freshRows=await latest(c,cached.candles?.length?3:PAGE,tf);if(!freshRows.length)throw new Error("Latest market data verification returned empty");if(!canWork())return false;
+   const freshRows=await latest(c,cached.candles?.length?3:PAGE,tf);if(!freshRows.length)throw new Error("Latest market data request returned empty");if(!canWork())return false;
    const base=isActive(c,tf)?candles:cached.candles;
    let merged=merge(base,freshRows);
-   merged=await repairGaps(c,tf,merged);
-   if(!canWork())return false;
-   await write(key,merged,cached.historyBoundaryReached===true,"latest-verified");
+   await write(key,merged,cached.historyBoundaryReached===true,"latest-data-updated");
+   await updateLatestEma(key,merged,await getDB());
    latestCheckedAt.set(key,Date.now());
    if(isActive(c,tf)&&current(token)){
     const saved=await read(key);candles=merge(saved.candles);complete=saved.historyComplete===true;render(candles,token,tf);
     onState({symbol,contract:c,timeframe:tf,count:candles.length,historyComplete:complete,status:"latest-updated"});
+   }
+   try{
+    const repaired=await repairGaps(c,tf,merged);
+    if(!canWork())return true;
+    if(repaired.length!==merged.length){
+     await write(key,repaired,cached.historyBoundaryReached===true,"latest-verified");
+     await updateLatestEma(key,repaired,await getDB());
+     if(isActive(c,tf)&&current(token)){candles=merge(repaired);render(candles,token,tf)}
+    }else if(!repaired.some((row,i)=>i>0&&row.t-repaired[i-1].t>MS[tf]/1000)){
+     await write(key,repaired,cached.historyBoundaryReached===true,"latest-verified");
+    }
+   }catch(error){
+    const savedAfterRepair=await read(key);
+    await updateLatestEma(key,savedAfterRepair.candles,await getDB());
+    if(isActive(c,tf)&&current(token)){candles=merge(savedAfterRepair.candles);render(candles,token,tf);onState({symbol,contract:c,timeframe:tf,status:"history-gap-pending",error:String(error?.message||error)});}
    }
    if(!cached.candles?.length&&!completed.has(key)){if(queueRunning)queueRestartRequested=true;else startHistoryQueue();}
    return true;
