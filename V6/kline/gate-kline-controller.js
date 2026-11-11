@@ -1,13 +1,31 @@
 const DB_NAME="vegas-v6-market-cache",DB_VERSION=3,LEGACY_STORE="candles",STORE="candleRows",META_STORE="seriesMeta",EMA_STORE="emaRows",EMA_VERSION=1;
 const MEMORY_MAX_PER_SERIES=12000,MEMORY_MAX_TOTAL=30000;
 let storageCheckAt=0;
-const INTERVALS=Object.freeze({"1H":"1h","4H":"4h","8H":"8h","D":"1d"});
-const TIMEFRAMES=Object.freeze(["1H","4H","8H","D"]);
-const MS=Object.freeze({"1H":3600000,"4H":14400000,"8H":28800000,"D":86400000});
+const INTERVALS=Object.freeze({"1H":"1h","2H":"1h","4H":"4h","8H":"8h","D":"1d"});
+const TIMEFRAMES=Object.freeze(["1H","2H","4H","8H","D"]);
+const MS=Object.freeze({"1H":3600000,"2H":7200000,"4H":14400000,"8H":28800000,"D":86400000});
 const PAGE=2000,API="https://api.gateio.ws/api/v4/futures/usdt",WS_URL="wss://fx-ws.gateio.ws/v4/ws/usdt";
 const keyOf=(contract,tf)=>"gate-usdt:"+contract+":"+tf;
 const normalize=rows=>(Array.isArray(rows)?rows:[]).map(r=>({t:Number(r.t??r[0]),o:Number(r.o??r[5]??r[1]),h:Number(r.h??r[3]??r[2]),l:Number(r.l??r[4]??r[3]),c:Number(r.c??r[2]??r[4])})).filter(x=>Number.isFinite(x.t)&&x.t>0&&[x.o,x.h,x.l,x.c].every(v=>Number.isFinite(v)&&v>0)&&x.h>=Math.max(x.o,x.c)&&x.l<=Math.min(x.o,x.c)&&x.h>=x.l);
 const merge=(...groups)=>{const m=new Map();for(const g of groups)for(const c of g||[])m.set(c.t,c);return [...m.values()].sort((a,b)=>a.t-b.t)};
+function aggregate2H(rows){
+ const groups=new Map();
+ for(const candle of merge(rows)){
+  const start=Math.floor(candle.t/7200)*7200;
+  if(!groups.has(start))groups.set(start,[]);
+  groups.get(start).push(candle);
+ }
+ const currentHour=Math.floor(Date.now()/3600000)*3600,currentBucket=Math.floor(currentHour/7200)*7200,out=[];
+ for(const [start,items] of groups){
+  items.sort((a,b)=>a.t-b.t);
+  if(items.length===2&&items[0].t===start&&items[1].t===start+3600){
+   out.push({t:start,o:items[0].o,h:Math.max(items[0].h,items[1].h),l:Math.min(items[0].l,items[1].l),c:items[1].c});
+  }else if(items.length===1&&start===currentBucket&&items[0].t===currentHour){
+   out.push({t:start,o:items[0].o,h:items[0].h,l:items[0].l,c:items[0].c});
+  }
+ }
+ return out;
+}
 function openDB(){return new Promise((resolve,reject)=>{if(!("indexedDB"in window))return reject(new Error("IndexedDB unavailable; durable K-line cache cannot start"));const q=indexedDB.open(DB_NAME,DB_VERSION);q.onupgradeneeded=()=>{const db=q.result;if(!db.objectStoreNames.contains(STORE)){const rows=db.createObjectStore(STORE,{keyPath:"id"});rows.createIndex("series","series",{unique:false})}if(!db.objectStoreNames.contains(META_STORE))db.createObjectStore(META_STORE,{keyPath:"id"});if(!db.objectStoreNames.contains(EMA_STORE)){const ema=db.createObjectStore(EMA_STORE,{keyPath:"id"});ema.createIndex("series","series",{unique:false})}if(!db.objectStoreNames.contains(LEGACY_STORE))db.createObjectStore(LEGACY_STORE,{keyPath:"id"})};q.onsuccess=()=>{q.result.onversionchange=()=>q.result.close();resolve(q.result)};q.onerror=()=>reject(q.error||new Error("IndexedDB open failed"));q.onblocked=()=>reject(new Error("IndexedDB upgrade blocked"))})}
 function calculateEmaRows(rows){
  const periods=[12,36,43,144,169,576,676],values=new Map();
@@ -119,9 +137,9 @@ export function createGateKlineController({frame,instruments=[],onState=()=>{},i
  async function request(url,tf){let lastError;for(let attempt=0;attempt<5;attempt++){if(!canWork())throw new Error("History request paused");const controller=new AbortController();requestControllers.add(controller);try{const res=await fetch(url,{headers:{Accept:"application/json"},cache:"no-store",signal:controller.signal});if(res.status===429||res.status>=500)throw new Error("Gate HTTP "+res.status);if(!res.ok)throw new Error("Gate HTTP "+res.status);const body=await res.json();if(!Array.isArray(body))throw new Error("Gate returned non-array candlesticks");return normalize(body,tf)}catch(error){lastError=error;if(!canWork()||controller.signal.aborted)throw error;if(attempt===4)break;await new Promise(r=>setTimeout(r,Math.min(8000,1000*2**attempt)))}finally{requestControllers.delete(controller)}}throw lastError||new Error("Gate history request failed")}
  async function getContracts(){if(!contractsPromise)contractsPromise=fetch(API+"/contracts",{headers:{Accept:"application/json"},cache:"no-store"}).then(async r=>{if(!r.ok)throw new Error("Gate contract list HTTP "+r.status);const rows=await r.json();if(!Array.isArray(rows))throw new Error("Gate contract list invalid");return new Map(rows.map(x=>[x.name,x]))}).catch(e=>{contractsPromise=null;throw e});return contractsPromise}
  async function assertContract(c){const all=await getContracts();if(!all.has(c))throw new Error("Gate USDT perpetual contract not found: "+c);return all.get(c)}
- async function latest(c,n,tf){const u=API+"/candlesticks?contract="+encodeURIComponent(c)+"&interval="+INTERVALS[tf]+"&limit="+n;return merge(await request(u,tf))}
- async function older(c,tf,oldest){const step=MS[tf]/1000,from=Math.max(0,oldest-PAGE*step),to=Math.max(0,oldest-1);if(to<=from)return [];const u=API+"/candlesticks?contract="+encodeURIComponent(c)+"&interval="+INTERVALS[tf]+"&from="+from+"&to="+to;return merge(await request(u,tf))}
- async function range(c,tf,from,to){const step=MS[tf]/1000;let cursor=Math.max(0,from),rows=[];while(cursor<=to&&canWork()){const end=Math.min(to,cursor+(PAGE-1)*step),u=API+"/candlesticks?contract="+encodeURIComponent(c)+"&interval="+INTERVALS[tf]+"&from="+cursor+"&to="+end,part=await request(u,tf);if(!canWork())break;if(!part.length)throw new Error("Gate history gap could not be filled");rows=merge(rows,part);const next=part[part.length-1].t+step;if(next<=cursor)throw new Error("Gate gap repair pagination stalled");cursor=next}return rows}
+ async function latest(c,n,tf){if(tf==="2H"){const count=Math.min(2000,Math.max(4,n*2+2)),u=API+"/candlesticks?contract="+encodeURIComponent(c)+"&interval=1h&limit="+count;return aggregate2H(await request(u,"1H"))}const u=API+"/candlesticks?contract="+encodeURIComponent(c)+"&interval="+INTERVALS[tf]+"&limit="+n;return merge(await request(u,tf))}
+ async function older(c,tf,oldest){if(tf==="2H"){const step=3600,from=Math.max(0,oldest-PAGE*step),to=Math.max(0,oldest-1);if(to<=from)return [];const u=API+"/candlesticks?contract="+encodeURIComponent(c)+"&interval=1h&from="+from+"&to="+to;return aggregate2H(await request(u,"1H"))}const step=MS[tf]/1000,from=Math.max(0,oldest-PAGE*step),to=Math.max(0,oldest-1);if(to<=from)return [];const u=API+"/candlesticks?contract="+encodeURIComponent(c)+"&interval="+INTERVALS[tf]+"&from="+from+"&to="+to;return merge(await request(u,tf))}
+ async function range(c,tf,from,to){if(tf==="2H"){const step=3600;let cursor=Math.max(0,from),rows=[];while(cursor<=to&&canWork()){const end=Math.min(to,cursor+(PAGE-1)*step),u=API+"/candlesticks?contract="+encodeURIComponent(c)+"&interval=1h&from="+cursor+"&to="+end,part=await request(u,"1H");if(!canWork())break;if(!part.length)throw new Error("Gate history gap could not be filled");rows=merge(rows,aggregate2H(part));const next=part[part.length-1].t+step;if(next<=cursor)throw new Error("Gate gap repair pagination stalled");cursor=next}return rows}const step=MS[tf]/1000;let cursor=Math.max(0,from),rows=[];while(cursor<=to&&canWork()){const end=Math.min(to,cursor+(PAGE-1)*step),u=API+"/candlesticks?contract="+encodeURIComponent(c)+"&interval="+INTERVALS[tf]+"&from="+cursor+"&to="+end,part=await request(u,tf);if(!canWork())break;if(!part.length)throw new Error("Gate history gap could not be filled");rows=merge(rows,part);const next=part[part.length-1].t+step;if(next<=cursor)throw new Error("Gate gap repair pagination stalled");cursor=next}return rows}
  function isActive(c,tf){return !stopped&&c===contract&&tf===timeframe}
  function render(rows,token=selection,tf=timeframe){if(stopped||token!==selection||tf!==timeframe)return;const w=frame?.contentWindow;if(!w)return;w.setCandles?.(rows);w.setVegasEmaCandles?.(rows);w.setHistoryStatus?.(symbol,rows.length,complete,complete?"ready":"loading","",tf)}
  async function repairGaps(c,tf,source){
@@ -141,10 +159,10 @@ export function createGateKlineController({frame,instruments=[],onState=()=>{},i
   return rows
  }
  function sendSubscription(event,sub){if(!ws||ws.readyState!==WebSocket.OPEN||!sub)return;ws.send(JSON.stringify({time:Math.floor(Date.now()/1000),channel:"futures.candlesticks",event,payload:[INTERVALS[sub.timeframe],sub.contract]}))}
- function setSubscription(){if(!canWork()||!contract||!ws||ws.readyState!==WebSocket.OPEN)return;const next={contract,timeframe};if(wsSubscription&&wsSubscription.contract===next.contract&&wsSubscription.timeframe===next.timeframe)return;if(wsSubscription)sendSubscription("unsubscribe",wsSubscription);sendSubscription("subscribe",next);wsSubscription=next}
+ function setSubscription(){if(!canWork()||!contract||!ws||ws.readyState!==WebSocket.OPEN)return;const next={contract,timeframe};if(wsSubscription&&wsSubscription.contract===next.contract&&wsSubscription.timeframe===next.timeframe)return;if(wsSubscription)sendSubscription("unsubscribe",wsSubscription);wsSubscription=null;if(timeframe==="2H")return;sendSubscription("subscribe",next);wsSubscription=next}
  function closeWS(){if(retryTimer)clearTimeout(retryTimer);if(pingTimer)clearInterval(pingTimer);if(wsWatchdogTimer)clearInterval(wsWatchdogTimer);retryTimer=pingTimer=wsWatchdogTimer=0;const old=ws;if(old){sendSubscription("unsubscribe",wsSubscription);old.onclose=null;try{old.close()}catch(_){}}ws=null;wsSubscription=null}
  function current(token=selection){return !stopped&&token===selection}
- function subscribe(){if(!canWork()||!contract)return;if(!ws){try{const socket=new WebSocket(WS_URL);ws=socket;socket.onopen=()=>{if(ws!==socket||!canWork())return;lastPongAt=Date.now();pingTimer=setInterval(()=>{if(ws===socket&&socket.readyState===WebSocket.OPEN)socket.send(JSON.stringify({time:Math.floor(Date.now()/1000),channel:"futures.ping"}))},20000);wsWatchdogTimer=setInterval(()=>{if(ws===socket&&socket.readyState===WebSocket.OPEN&&Date.now()-lastPongAt>65000){try{socket.close()}catch(_){}}},20000);wsSubscription=null;setSubscription()};socket.onmessage=e=>{if(ws!==socket||!canWork())return;let message;try{message=JSON.parse(e.data)}catch(_){return}if(message.channel==="futures.pong"||message.event==="pong"){lastPongAt=Date.now();return}if(message.channel!=="futures.candlesticks"||message.event!=="update"||!Array.isArray(message.result))return;const first=message.result[0],identity=String(first?.n||""),separator=identity.indexOf("_");const rawInterval=separator>0?identity.slice(0,separator):first?.i||first?.interval;const rawContract=separator>0?identity.slice(separator+1):first?.contract;if(rawContract!==contract||rawInterval!==INTERVALS[timeframe])return;const incoming=normalize(message.result,timeframe);if(!incoming.length)return;const token=selection,c=contract,tf=timeframe;candles=mergeLive(candles,incoming);scheduleWrite(keyOf(c,tf),incoming,complete);render(candles,token,tf)};socket.onclose=()=>{if(ws===socket){ws=null;wsSubscription=null;if(pingTimer)clearInterval(pingTimer);if(wsWatchdogTimer)clearInterval(wsWatchdogTimer);pingTimer=wsWatchdogTimer=0;if(canWork())retryTimer=setTimeout(subscribe,3000)}};socket.onerror=()=>{try{socket.close()}catch(_){}}}catch(_){retryTimer=setTimeout(subscribe,5000);return}}setSubscription()}
+ function subscribe(){if(!canWork()||!contract||timeframe==="2H")return;if(!ws){try{const socket=new WebSocket(WS_URL);ws=socket;socket.onopen=()=>{if(ws!==socket||!canWork())return;lastPongAt=Date.now();pingTimer=setInterval(()=>{if(ws===socket&&socket.readyState===WebSocket.OPEN)socket.send(JSON.stringify({time:Math.floor(Date.now()/1000),channel:"futures.ping"}))},20000);wsWatchdogTimer=setInterval(()=>{if(ws===socket&&socket.readyState===WebSocket.OPEN&&Date.now()-lastPongAt>65000){try{socket.close()}catch(_){}}},20000);wsSubscription=null;setSubscription()};socket.onmessage=e=>{if(ws!==socket||!canWork())return;let message;try{message=JSON.parse(e.data)}catch(_){return}if(message.channel==="futures.pong"||message.event==="pong"){lastPongAt=Date.now();return}if(message.channel!=="futures.candlesticks"||message.event!=="update"||!Array.isArray(message.result))return;const first=message.result[0],identity=String(first?.n||""),separator=identity.indexOf("_");const rawInterval=separator>0?identity.slice(0,separator):first?.i||first?.interval;const rawContract=separator>0?identity.slice(separator+1):first?.contract;if(rawContract!==contract||rawInterval!==INTERVALS[timeframe])return;const incoming=normalize(message.result,timeframe);if(!incoming.length)return;const token=selection,c=contract,tf=timeframe;candles=mergeLive(candles,incoming);scheduleWrite(keyOf(c,tf),incoming,complete);render(candles,token,tf)};socket.onclose=()=>{if(ws===socket){ws=null;wsSubscription=null;if(pingTimer)clearInterval(pingTimer);if(wsWatchdogTimer)clearInterval(wsWatchdogTimer);pingTimer=wsWatchdogTimer=0;if(canWork())retryTimer=setTimeout(subscribe,3000)}};socket.onerror=()=>{try{socket.close()}catch(_){}}}catch(_){retryTimer=setTimeout(subscribe,5000);return}}setSubscription()}
  async function backfillPeriod(c,tf){
   const key=keyOf(c,tf),cached=await read(key);
   if(!canWork())return;
@@ -246,7 +264,7 @@ export function createGateKlineController({frame,instruments=[],onState=()=>{},i
  }
  async function select(nextSymbol,nextContract,tf=timeframe){
   if(stopped)return false;
-  if(!INTERVALS[tf])throw new Error("Unsupported timeframe: "+tf);
+  if(!TIMEFRAMES.includes(tf))throw new Error("Unsupported timeframe: "+tf);
   const item=bySymbol.get(nextSymbol),c=nextContract||item?.gateContract||item?.contract;
   if(!c)throw new Error("A Gate USDT perpetual contract is required");
   selection++;const token=selection;symbol=nextSymbol;contract=c;timeframe=tf;complete=false;setSubscription();
