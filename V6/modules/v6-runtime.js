@@ -4,8 +4,8 @@ import { INSTRUMENTS, createSessionQueue } from "./shared/universe-v6.js";
 import { createV12Feed } from "./signal-ticker/v12-feed.js";
 import { createSignalTicker } from "./signal-ticker/ticker.js";
 import { GATE_CONTRACTS } from "./shared/universe-v6.js";
-import { createV6KlineView } from "../kline/v6-kline-view.js?v=v6-kline-sync-1";
-import { createGateKlineController } from "../kline/gate-kline-controller.js";
+import { createV6KlineView } from "../kline/v6-kline-view.js?v=v6-kline-sync-2";
+import { createGateKlineController } from "../kline/gate-kline-controller.js?v=v6-kline-sync-2";
 
 const lifecycle=createLifecycleScope();
 let pageLifecycle=null;
@@ -16,7 +16,7 @@ const klineHost=document.getElementById("kline-host"),STORAGE="vegas-v6-selected
 let timeframe="4H",destroyed=false,logoIndex=0,rotationTimer=null,transitionTimer=null,interactionResumeTimer=null;
 let signalBusy=false,quoteBusy=false,foregroundInterval=null,quoteAbort=null;
 const interactionLocks=new Set();
-try{const saved=localStorage.getItem(STORAGE);if(["1H","4H","8H","D"].includes(saved))timeframe=saved}catch(_){}
+try{const saved=localStorage.getItem(STORAGE);if(["1H","2H","4H","8H","D"].includes(saved))timeframe=saved}catch(_){}
 let sessionQueue=[...createSessionQueue()],previous="";
 try{previous=localStorage.getItem(RANDOM_START)||""}catch(_){}
 const firstIndex=sessionQueue.findIndex(item=>item.symbol!==previous);
@@ -41,7 +41,7 @@ lifecycle.listen(window,"unhandledrejection",event=>console.error("[VEGAS V6 unh
 lifecycle.listen(window,"error",event=>console.error("[VEGAS V6 runtime error]",event.message,event.filename,event.lineno));
 const feed=createV12Feed({isHidden:isRuntimeHidden}),ticker=createSignalTicker();
 function selectSymbol(symbol){const item=INSTRUMENTS.find(x=>x.symbol===symbol),contract=GATE_CONTRACTS[symbol];if(!item||!contract){console.warn("[VEGAS V6] Unknown symbol:",symbol);return false;}void controller.select(symbol,contract,timeframe);return true;}
-function switchTimeframe(next){if(!["1H","4H","8H","D"].includes(next)||next===timeframe)return;timeframe=next;try{localStorage.setItem(STORAGE,next)}catch(_){}sendTimeframeState();sendLogoState();if(controller.state.contract)void controller.select(controller.state.symbol,controller.state.contract,timeframe);}
+function switchTimeframe(next){if(!["1H","2H","4H","8H","D"].includes(next)||next===timeframe)return;timeframe=next;try{localStorage.setItem(STORAGE,next)}catch(_){}sendTimeframeState();sendLogoState();if(controller.state.contract)void controller.select(controller.state.symbol,controller.state.contract,timeframe);}
 function clearRotationTimers(){if(rotationTimer!==null){clearTimeout(rotationTimer);rotationTimer=null;}if(transitionTimer!==null){clearTimeout(transitionTimer);transitionTimer=null;}}
 function scheduleSymbolRotation(){if(destroyed||isRuntimeHidden()||interactionLocks.size)return;clearRotationTimers();rotationTimer=setTimeout(()=>transitionToIndex((logoIndex+1)%sessionQueue.length),7000);}
 function transitionToIndex(index){
@@ -108,4 +108,4 @@ function initializeCards(){
 if(!initializeCards()&&document.readyState!=="complete")lifecycle.listen(window,"load",initializeCards,{once:true});
 selectSymbol(sessionQueue[logoIndex].symbol);sendTimeframeState();startSymbolRotation();refreshSignals();refreshCardQuotes();startForegroundTimers();
 window.V6Kline=Object.freeze({select:selectSymbol,setTimeframe:switchTimeframe,refresh:()=>controller.refresh(),get state(){return controller.state;}});
-console.info("[VEGAS V6] mounted",INSTRUMENTS.length,"Gate K-line + 4 timeframes + local cards + V12 ticker");
+console.info("[VEGAS V6] mounted",INSTRUMENTS.length,"Gate K-line + 5 timeframes + local cards + V12 ticker");
