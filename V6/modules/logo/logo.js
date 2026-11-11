@@ -2,7 +2,7 @@ const CATALOG=globalThis.V6_INSTRUMENT_CATALOG;
 if(!Array.isArray(CATALOG)||CATALOG.length!==27)throw new Error("V6 instrument catalog unavailable");
 const LOGOS=Object.freeze(Object.fromEntries(CATALOG.map(item=>[item.symbol,[item.logo,item.logoGroup]])));
 const ROOT="../../assets/logos/";
-const TIMEFRAME_MS=Object.freeze({"1H":3600000,"4H":14400000,"8H":28800000,"D":86400000});
+const TIMEFRAME_MS=Object.freeze({"1H":3600000,"2H":7200000,"4H":14400000,"8H":28800000,"D":86400000});
 let intervalMs=TIMEFRAME_MS["4H"];
 const brand=document.getElementById("logo-brand"),image=document.getElementById("logo-image"),label=document.getElementById("logo-symbol"),countdown=document.getElementById("logo-countdown");
 let current="",pending=null,transitioning=false,clockTimer=null;
