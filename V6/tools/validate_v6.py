@@ -163,3 +163,16 @@ if errors:
         print(" -", error)
     sys.exit(1)
 print(f"V6 validation passed: {len(html_files)} HTML files; local references, inline scripts, CSS, imports, namespaces and dependencies checked.")
+
+# The shared timeframe system is fixed to five periods, including 2H aggregation.
+timeframe = (ROOT / "modules/timeframe-switch/index.html").read_text(encoding="utf-8")
+runtime = (ROOT / "modules/v6-runtime.js").read_text(encoding="utf-8")
+logo = (ROOT / "modules/logo/logo.js").read_text(encoding="utf-8")
+controller = (ROOT / "kline/gate-kline-controller.js").read_text(encoding="utf-8")
+for label, source in (("timeframe selector", timeframe), ("runtime", runtime), ("logo countdown", logo), ("K-line controller", controller)):
+    if '"2H"' not in source and '>2H<' not in source:
+        fail(f"{label} does not include the 2H timeframe")
+if 'height:20%' not in timeframe:
+    fail("five timeframe buttons do not use equal 20% height")
+if 'function aggregate2H' not in controller or 'INTERVALS=Object.freeze({"1H":"1h","2H":"1h"' not in controller:
+    fail("2H aggregation from Gate 1H candles is missing")
