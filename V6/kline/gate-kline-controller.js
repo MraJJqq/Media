@@ -288,7 +288,7 @@ export function createGateKlineController({frame,instruments=[],onState=()=>{},i
    const cached=await read(keyOf(c,tf));if(!current(token)||!canWork())return false;
    candles=merge(cached.candles);complete=cached.historyComplete===true;render(candles,token,tf);
    onState({symbol,contract,timeframe,count:candles.length,historyComplete:complete,status:"cache-loaded"});
-   subscribe();startHistoryQueue();
+   subscribe();startHistoryQueue(forceLatest);
    void updateLatest(c,tf,token,forceLatest);
    return candles.length>0
   }catch(e){if(current(token))onState({symbol,contract,timeframe,count:candles.length,historyComplete:complete,status:"cache-read-failed",error:String(e?.message||e)});return false}
