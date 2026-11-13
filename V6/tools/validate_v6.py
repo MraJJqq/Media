@@ -143,7 +143,7 @@ if "discardedLegacyArray" not in controller:
 
 # All static CSS/JS entry resources use one cache-busting release token.
 STATIC_ASSET_VERSION = "v6-static-20261112-3"
-KLINE_SYNC_VERSION = "v6-kline-recovery-20261113-1"
+KLINE_SYNC_VERSION = "v6-kline-pause-20261113-1"
 static_versions = set()
 for page in html_files:
     source = page.read_text(encoding="utf-8")
@@ -158,6 +158,13 @@ if f'v6-kline-view.js?v={KLINE_SYNC_VERSION}' not in runtime_source:
     fail("V6 K-line view import cache version is not refreshed")
 if f'gate-kline-controller.js?v={KLINE_SYNC_VERSION}' not in runtime_source:
     fail("Gate K-line controller import cache version is not refreshed")
+if f'kline-rotation-pause.js?v={KLINE_SYNC_VERSION}' not in runtime_source:
+    fail("independent K-line rotation pause controller is not imported")
+pause_controller = (ROOT / "modules/kline-rotation-pause.js").read_text(encoding="utf-8")
+if "createKlineRotationPause" not in pause_controller or "<=320" not in pause_controller or ">4" not in pause_controller:
+    fail("K-line double-tap pause recognition rules are incomplete")
+if "userRotationPaused" not in runtime_source:
+    fail("K-line and Logo user pause state is not isolated from interaction locks")
 
 
 controller = (ROOT / "kline/gate-kline-controller.js").read_text(encoding="utf-8")
