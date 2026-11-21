@@ -182,13 +182,6 @@ if "persistRepairTask" not in controller or 'id:"repairTask|"+key' not in contro
 if "scheduleHistoryRetry" not in controller or "historyRetryTimer" not in controller:
     fail("failed repair tasks do not retry automatically while the page remains active")
 
-if errors:
-    print("V6 validation FAILED:")
-    for error in errors:
-        print(" -", error)
-    sys.exit(1)
-print(f"V6 validation passed: {len(html_files)} HTML files; local references, inline scripts, CSS, imports, namespaces and dependencies checked.")
-
 # The shared timeframe system is fixed to five periods, including 2H aggregation.
 timeframe = (ROOT / "modules/timeframe-switch/index.html").read_text(encoding="utf-8")
 runtime = (ROOT / "modules/v6-runtime.js").read_text(encoding="utf-8")
@@ -214,3 +207,11 @@ if not scan_block or len(re.findall(r'"[A-Z0-9]+"', scan_block.group(1))) != 22:
 runtime = (ROOT / "modules/v6-runtime.js").read_text(encoding="utf-8")
 if "INSTRUMENTS.length!==22" not in runtime:
     fail("V8 runtime must use the 22-symbol local pool")
+
+# Report every check only after all validation rules have run.
+if errors:
+    print("V6 validation FAILED:")
+    for error in errors:
+        print(" -", error)
+    sys.exit(1)
+print(f"V6 validation passed: {len(html_files)} HTML files; local references, inline scripts, CSS, imports, namespaces and dependencies checked.")
