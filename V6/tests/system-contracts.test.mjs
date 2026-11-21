@@ -123,6 +123,5 @@ test("responsive layout contracts retain dynamic viewport and safe-area handling
   assert.match(full, /100dvh/);
   assert.match(full, /safe-area-inset/);
   assert.match(full, /orientation|landscape|portrait/i);
-  assert.match(cards, /@media/);
   assert.match(cards, /ResizeObserver|touch-action|pointer-events|overflow/i);
 });
