@@ -21,7 +21,7 @@ Background artwork is maintained in `../Backgrounds/`; the background-generation
 Entry: `index.html` → `modules/v6-runtime.js`.
 
 1. Load the shared lifecycle manager, page lifecycle manager, 22-instrument universe, Gate contract map, V12 feed, signal ticker, K-line view and Gate K-line controller.
-2. Restore the selected timeframe from local storage key `vegas-v6-selected-timeframe`; accepted values are `1H`, `4H`, `8H`, and `D`. Default is `4H`.
+2. Restore the selected timeframe from local storage key `vegas-v6-selected-timeframe`; accepted values are `1H`, `2H`, `4H`, `8H`, and `D`. Default is `4H`.
 3. Build the 22-item session rotation queue. The first symbol is selected so it differs from the previous session's first symbol when possible; the previous start is stored as `vegas-v6-last-random-start`.
 4. Verify that the instrument universe and Gate contract map both contain exactly 22 complete entries.
 5. Initialize the K-line view/controller, V12 feed and ticker. The host page sends state to the Logo and timeframe iframe modules using same-origin `postMessage`.
@@ -87,7 +87,7 @@ Sources:
 - `modules/timeframe-switch/host.css` (presentation and interaction only; outer iframe geometry is owned by the full-screen dynamic system)
 
 Operating flow:
-1. Present the four native display intervals: `1H`, `4H`, `8H`, `D`.
+1. Present the five native display intervals: `1H`, `2H`, `4H`, `8H`, `D`.
 2. A user selection updates the selector's pressed state and sends `VEGAS_TIMEFRAME_SELECT` to the parent.
 3. The host validates the value, stores it under `vegas-v6-selected-timeframe`, updates Logo/countdown state, and reselects the active Gate contract at the new interval.
 4. The host can also send `VEGAS_TIMEFRAME_SET` to restore the selector after page initialization or state changes.
@@ -113,7 +113,7 @@ Operating flow:
 8. User gesture interaction is reported to the host. The host acquires an interaction lock so automatic symbol rotation does not interrupt K-line use.
 9. When the page is hidden or suspended, requests, live work and timers are paused/cancelled; the lifecycle resumes them when the page becomes active.
 
-Supported intervals in this system are `1H`, `4H`, `8H`, and `D`. Data source is Gate USDT perpetual futures.
+Supported intervals in this system are `1H`, `2H`, `4H`, `8H`, and `D`. Data source is Gate USDT perpetual futures.
 
 ## V12 signal feed and bottom ticker
 
@@ -143,7 +143,7 @@ Operating flow:
 
 - Confirm all relative imports and runtime asset paths resolve within this V6 package; background artwork and its generator are maintained separately under `../Backgrounds/`.
 - Confirm all 22 symbols have a Gate contract mapping and local logo mapping.
-- Confirm all four intervals propagate from selector → host runtime → K-line controller → Logo countdown.
+- Confirm all five intervals propagate from selector → host runtime → K-line controller → Logo countdown.
 - Confirm hidden-page suspension stops polling/animation work and visible-page restoration resumes it.
 - Confirm K-line history/cache/live update and viewport persistence.
 - Confirm V12 payload validation rejects stale-day, partial-pool, duplicate or foreign-symbol data.
