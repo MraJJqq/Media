@@ -35,7 +35,7 @@ jobs:
         run: python3 tools/validate_v6.py
       - name: Install isolated test dependency
         run: npm install --prefix /tmp/media-test-deps --no-save --package-lock=false fake-indexeddb@6.2.4
-      - name: Run all 20 K-line reliability tests
+      - name: Run all K-line reliability tests
         run: |
           ln -s /tmp/media-test-deps/node_modules node_modules
           node --input-type=module --check < kline/gate-kline-controller.js
