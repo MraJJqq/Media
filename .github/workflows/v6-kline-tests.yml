@@ -5,7 +5,16 @@ on:
     branches: [main]
     paths:
       - 'V6/**'
-      - '.github/workflows/v6-kline-tests.yml'
+      - 'Backgrounds/**'
+      - 'Brand/**'
+      - 'Logos/**'
+      - 'Cards/**'
+      - 'Charts/**'
+      - 'References/**'
+      - 'Templates/**'
+      - 'UI/**'
+      - 'README.md'
+      - '.github/workflows/**'
   workflow_dispatch:
 
 permissions:
