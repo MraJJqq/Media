@@ -1,12 +1,10 @@
-name: Media V6 K-line reliability tests
+name: Media V6 system reliability tests
 
 on:
   push:
     branches: [main]
     paths:
-      - 'V6/kline/**'
-      - 'V6/tests/**'
-      - 'V6/tools/validate_v6.py'
+      - 'V6/**'
       - '.github/workflows/v6-kline-tests.yml'
   workflow_dispatch:
 
@@ -35,8 +33,11 @@ jobs:
         run: python3 tools/validate_v6.py
       - name: Install isolated test dependency
         run: npm install --prefix /tmp/media-test-deps --no-save --package-lock=false fake-indexeddb@6.2.4
-      - name: Run all K-line reliability tests
+      - name: Run all V6 system reliability tests
+        shell: bash
         run: |
           ln -s /tmp/media-test-deps/node_modules node_modules
-          node --input-type=module --check < kline/gate-kline-controller.js
-          node --test tests/kline-controller.test.mjs
+          while IFS= read -r -d '' file; do
+            node --input-type=module --check < "$file"
+          done < <(find . -name '*.js' -not -path './node_modules/*' -print0)
+          node --test tests/*.test.mjs
