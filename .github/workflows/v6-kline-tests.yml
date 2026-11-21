@@ -1,0 +1,42 @@
+name: Media V6 K-line reliability tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'V6/kline/**'
+      - 'V6/tests/**'
+      - 'V6/tools/validate_v6.py'
+      - '.github/workflows/v6-kline-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: media-v6-kline-tests
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: V6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate Media V6 site
+        run: python3 tools/validate_v6.py
+      - name: Install isolated test dependency
+        run: npm install --prefix /tmp/media-test-deps --no-save --package-lock=false fake-indexeddb@6.2.4
+      - name: Run all 20 K-line reliability tests
+        run: |
+          ln -s /tmp/media-test-deps/node_modules node_modules
+          node --input-type=module --check < kline/gate-kline-controller.js
+          node --test tests/kline-controller.test.mjs
