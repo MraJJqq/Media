@@ -84,7 +84,10 @@ for js in ROOT.rglob("*.js"):
         if target is not None and not target.is_file():
             fail(f"{js.relative_to(ROOT)}: missing module {ref}")
 
-runtime_files = html_files + list(ROOT.rglob("*.js")) + [ROOT / ".github/workflows/pages.yml"]
+runtime_files = html_files + list(ROOT.rglob("*.js"))
+workflow_path = ROOT / ".github/workflows/pages.yml"
+if workflow_path.is_file():
+    runtime_files.append(workflow_path)
 runtime_text = "\\n".join(path.read_text(encoding="utf-8") for path in runtime_files)
 for forbidden in ("MraJJqq/V5", "bitget", "yahoo"):
     if forbidden.lower() in runtime_text.lower():
